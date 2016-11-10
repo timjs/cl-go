@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/bmatcuk/doublestar"
 )
 
 // Constants ///////////////////////////////////////////////////////////////////
@@ -126,16 +124,13 @@ func runClean() {
 	exitIfNotProject()
 	actionLog.Println("Cleaning files")
 
-	todo := make([]string, 0, 128)
-	globs, _ := doublestar.Glob("**/Clean System Files/")
-	todo = append(todo, globs...)
-	globs, _ = doublestar.Glob("**/sapl")
-	todo = append(todo, globs...)
-
-	for _, f := range todo {
-		infoLog.Println(f)
-		os.Remove(f)
-	}
+	filepath.Walk(".", func(path string, _ os.FileInfo, _ error) error {
+		if base := filepath.Base(path); base == "Clean System Files" || base == "sapl" {
+			infoLog.Println(path)
+			os.RemoveAll(path)
+		}
+		return nil
+	})
 }
 
 func runPrune() {
