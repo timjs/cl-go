@@ -79,7 +79,7 @@ func runAdd(mods ...string) {
 
 		icl, _ := os.Create(path + ".icl")
 		defer icl.Close()
-		dcl.WriteString("implementation module " + mod + "\n\n")
+		icl.WriteString("implementation module " + mod + "\n\n")
 	}
 }
 
