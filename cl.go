@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -112,12 +113,20 @@ func runMove(oldmod, newmod string) {
 
 func runBuild() {
 	exitIfNotProject()
-	errorLog.Println("Not yet implemented")
+	actionLog.Println("Building project")
+
+	cmd := exec.Command("cpm", "make")
+	cmd.Stdout = os.Stdout
+	cmd.Run()
 }
 
 func runRun() {
 	exitIfNotProject()
-	errorLog.Println("Not yet implemented")
+    actionLog.Println("Running project")
+
+	cmd := exec.Command("./main.exe")
+	cmd.Stdout = os.Stdout
+	cmd.Run()
 }
 
 func runClean() {
