@@ -59,13 +59,13 @@ func runHelp() {
 func runInit() {
 	actionLog.Println("Initializing new project")
 
-	os.Mkdir("Sources", 0755)
-	os.Mkdir("Tests", 0755)
+	os.Mkdir("src", 0755)
+	os.Mkdir("test", 0755)
 }
 
 func runAdd(mods ...string) {
 	exitIfNotProject()
-	os.Chdir("Sources")
+	os.Chdir("src")
 
 	for _, mod := range mods {
 		actionLog.Println("Creating module", quote(mod))
@@ -85,7 +85,7 @@ func runAdd(mods ...string) {
 
 func runRemove(mods ...string) {
 	exitIfNotProject()
-	os.Chdir("Sources")
+	os.Chdir("src")
 
 	for _, mod := range mods {
 		actionLog.Println("Removing module", quote(mod))
@@ -100,7 +100,7 @@ func runMove(oldmod, newmod string) {
 	exitIfNotProject()
 	actionLog.Println("Moving", quote(oldmod), "to", quote(newmod))
 
-	os.Chdir("Sources")
+	os.Chdir("src")
 
 	oldpath := moduleToPath.Replace(oldmod)
 	newpath := moduleToPath.Replace(newmod)
