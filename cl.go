@@ -1,15 +1,19 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/naoina/toml"
 )
 
 // Constants ///////////////////////////////////////////////////////////////////
 
+const projectfile = "Project.toml"
 const usage = `Clean command line tools
 
 Usage:
@@ -51,6 +55,49 @@ var (
 	moduleToPath = strings.NewReplacer(".", "/")
 )
 
+// Map a function over a slice of strings.
+// Returns a copy of the slice.
+func Map(slice []string, f func(string) string) []string {
+	newSlice := make([]string, len(slice))
+	for i, str := range slice {
+		newSlice[i] = f(str)
+	}
+	return newSlice
+}
+
+// Config //////////////////////////////////////////////////////////////////////
+
+type config struct {
+	Project struct {
+		Name    string
+		Version string
+		Authors []string
+
+		Sourcedir string
+		Libraries []string
+	}
+
+	Executable struct {
+		Main   string
+		Output string
+	}
+}
+
+func readProjectFile() config {
+	// We already checked if this is a project!
+	file, _ := os.Open(projectfile)
+	defer file.Close()
+
+	buf, _ := ioutil.ReadAll(file)
+
+	var conf config
+	if err := toml.Unmarshal(buf, &conf); err != nil {
+		exitProjectParseError(err)
+	}
+
+	return conf
+}
+
 // Commands ////////////////////////////////////////////////////////////////////
 
 func runHelp() {
@@ -64,8 +111,12 @@ func runInit() {
 	os.Mkdir("test", 0755)
 }
 
+func runInfo(conf config) {
+	actionLog.Println("Showing information about current project")
+	infoLog.Println(conf)
+}
+
 func runAdd(mods ...string) {
-	exitIfNotProject()
 	os.Chdir("src")
 
 	for _, mod := range mods {
@@ -85,7 +136,6 @@ func runAdd(mods ...string) {
 }
 
 func runRemove(mods ...string) {
-	exitIfNotProject()
 	os.Chdir("src")
 
 	for _, mod := range mods {
@@ -98,7 +148,6 @@ func runRemove(mods ...string) {
 }
 
 func runMove(oldmod, newmod string) {
-	exitIfNotProject()
 	actionLog.Println("Moving", quote(oldmod), "to", quote(newmod))
 
 	os.Chdir("src")
@@ -111,18 +160,29 @@ func runMove(oldmod, newmod string) {
 	os.Rename(oldpath+".icl", newpath+".icl")
 }
 
-func runBuild() {
-	exitIfNotProject()
+func runBuild(conf config) {
 	actionLog.Println("Building project")
 
-	cmd := exec.Command("cpm", "make")
+	os.Chdir("src")
+
+	libargs := Map(conf.Project.Libraries, func(libname string) string {
+		return "-IL " + libname
+	})
+
+	args := make([]string, 0, len(conf.Project.Libraries)+2)
+	args = append(args, libargs...)
+	args = append(args, conf.Executable.Main)
+	args = append(args, "-o "+conf.Executable.Output)
+
+	//cmd := exec.Command("cpm", "make")
+	actionLog.Println(args)
+	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Run()
 }
 
 func runRun() {
-	exitIfNotProject()
-    actionLog.Println("Running project")
+	actionLog.Println("Running project")
 
 	cmd := exec.Command("./main.exe")
 	cmd.Stdout = os.Stdout
@@ -130,7 +190,6 @@ func runRun() {
 }
 
 func runClean() {
-	exitIfNotProject()
 	actionLog.Println("Cleaning files")
 
 	filepath.Walk(".", func(path string, _ os.FileInfo, _ error) error {
@@ -167,20 +226,27 @@ func runSwitch() {
 
 func exitNoCommand() {
 	infoLog.Println(usage)
-	os.Exit(2)
+	os.Exit(1)
 }
 
 func exitInvalidCommand(cmd string) {
 	errorLog.Println(quote(cmd), "is not a valid command")
 	errorLog.Println("Run 'cl help' to see a list of all available commands")
-	os.Exit(2)
+	os.Exit(1)
 }
 
 func exitIfNotProject() {
-	if _, err := os.Stat("main.prj"); err != nil {
+	if _, err := os.Stat(projectfile); err != nil {
 		errorLog.Println("This is not a Clean project directory")
-		os.Exit(1)
+		errorLog.Println("Run 'cl init' to initialise a project")
+		os.Exit(2)
 	}
+}
+
+func exitProjectParseError(err error) {
+	errorLog.Println("Error parsing project file")
+	errorLog.Println(err)
+	os.Exit(3)
 }
 
 // Main ////////////////////////////////////////////////////////////////////////
@@ -196,30 +262,32 @@ func main() {
 		runHelp()
 	case "init":
 		runInit()
-	case "add", "create":
-		exitIfNotProject()
-		runAdd(os.Args[2:]...)
-	case "remove", "rm", "delete":
-		exitIfNotProject()
-		runRemove(os.Args[2:]...)
-	case "move", "mv":
-		exitIfNotProject()
-		runMove(os.Args[2], os.Args[3])
 	case "switch":
-		exitIfNotProject()
-	case "build":
-		exitIfNotProject()
-		runBuild()
-	case "run":
-		exitIfNotProject()
-		runRun()
-	case "clean":
-		exitIfNotProject()
-		runClean()
-	case "prune":
-		exitIfNotProject()
-		runPrune()
+		runSwitch()
 	default:
-		exitInvalidCommand(os.Args[1])
+		// For other options we need to be in a project directory
+		exitIfNotProject()
+		conf := readProjectFile()
+
+		switch os.Args[1] {
+		case "info":
+			runInfo(conf)
+		case "add", "create":
+			runAdd(os.Args[2:]...)
+		case "remove", "rm", "delete":
+			runRemove(os.Args[2:]...)
+		case "move", "mv":
+			runMove(os.Args[2], os.Args[3])
+		case "build":
+			runBuild(conf)
+		case "run":
+			runRun()
+		case "clean":
+			runClean()
+		case "prune":
+			runPrune()
+		default:
+			exitInvalidCommand(os.Args[1])
+		}
 	}
 }
