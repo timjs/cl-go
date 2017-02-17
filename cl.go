@@ -45,7 +45,7 @@ func quote(s string) string {
 }
 
 var (
-	infoLog   = log.New(os.Stdout, "", 0)
+	infoLog   = log.New(os.Stdout, "    ", 0)
 	actionLog = log.New(os.Stdout, ">>> ", 0)
 	errorLog  = log.New(os.Stderr, "!!! ", 0)
 )
@@ -116,8 +116,8 @@ func runInfo(conf config) {
 	infoLog.Println(conf)
 }
 
-func runAdd(mods ...string) {
-	os.Chdir("src")
+func runAdd(conf config, mods ...string) {
+	os.Chdir(conf.Project.Sourcedir)
 
 	for _, mod := range mods {
 		actionLog.Println("Creating module", quote(mod))
@@ -135,8 +135,8 @@ func runAdd(mods ...string) {
 	}
 }
 
-func runRemove(mods ...string) {
-	os.Chdir("src")
+func runRemove(conf config, mods ...string) {
+	os.Chdir(conf.Project.Sourcedir)
 
 	for _, mod := range mods {
 		actionLog.Println("Removing module", quote(mod))
@@ -147,10 +147,10 @@ func runRemove(mods ...string) {
 	}
 }
 
-func runMove(oldmod, newmod string) {
+func runMove(conf config, oldmod, newmod string) {
 	actionLog.Println("Moving", quote(oldmod), "to", quote(newmod))
 
-	os.Chdir("src")
+	os.Chdir(conf.Project.Sourcedir)
 
 	oldpath := moduleToPath.Replace(oldmod)
 	newpath := moduleToPath.Replace(newmod)
@@ -163,7 +163,7 @@ func runMove(oldmod, newmod string) {
 func runBuild(conf config) {
 	actionLog.Println("Building project")
 
-	os.Chdir("src")
+	os.Chdir(conf.Project.Sourcedir)
 
 	libargs := Map(conf.Project.Libraries, func(libname string) string {
 		return "-IL " + libname
@@ -181,10 +181,10 @@ func runBuild(conf config) {
 	cmd.Run()
 }
 
-func runRun() {
+func runRun(conf config) {
 	actionLog.Println("Running project")
 
-	cmd := exec.Command("./main.exe")
+	cmd := exec.Command(conf.Executable.Main)
 	cmd.Stdout = os.Stdout
 	cmd.Run()
 }
@@ -238,14 +238,14 @@ func exitInvalidCommand(cmd string) {
 func exitIfNotProject() {
 	if _, err := os.Stat(projectfile); err != nil {
 		errorLog.Println("This is not a Clean project directory")
-		errorLog.Println("Run 'cl init' to initialise a project")
+		infoLog.Println("Run 'cl init' to initialise a project")
 		os.Exit(2)
 	}
 }
 
 func exitProjectParseError(err error) {
-	errorLog.Println("Error parsing project file")
-	errorLog.Println(err)
+	errorLog.Println("Error parsing project file:")
+	infoLog.Println(err)
 	os.Exit(3)
 }
 
@@ -273,15 +273,15 @@ func main() {
 		case "info":
 			runInfo(conf)
 		case "add", "create":
-			runAdd(os.Args[2:]...)
+			runAdd(conf, os.Args[2:]...)
 		case "remove", "rm", "delete":
-			runRemove(os.Args[2:]...)
+			runRemove(conf, os.Args[2:]...)
 		case "move", "mv":
-			runMove(os.Args[2], os.Args[3])
+			runMove(conf, os.Args[2], os.Args[3])
 		case "build":
 			runBuild(conf)
 		case "run":
-			runRun()
+			runRun(conf)
 		case "clean":
 			runClean()
 		case "prune":
