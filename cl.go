@@ -55,16 +55,6 @@ var (
 	moduleToPath = strings.NewReplacer(".", "/")
 )
 
-// Map a function over a slice of strings.
-// Returns a copy of the slice.
-func Map(slice []string, f func(string) string) []string {
-	newSlice := make([]string, len(slice))
-	for i, str := range slice {
-		newSlice[i] = f(str)
-	}
-	return newSlice
-}
-
 // Config //////////////////////////////////////////////////////////////////////
 
 type config struct {
@@ -165,19 +155,16 @@ func runBuild(conf config) {
 
 	os.Chdir(conf.Project.Sourcedir)
 
-	libargs := Map(conf.Project.Libraries, func(libname string) string {
-		return "-IL " + libname
-	})
-
-	args := make([]string, 0, len(conf.Project.Libraries)+2)
-	args = append(args, libargs...)
+	args := make([]string, 0, 2*len(conf.Project.Libraries)+2)
+	for _, lib := range conf.Project.Libraries {
+		args = append(args, "-IL", lib)
+	}
 	args = append(args, conf.Executable.Main)
-	args = append(args, "-o "+conf.Executable.Output)
+	args = append(args, "-o", conf.Executable.Output)
 
-	//cmd := exec.Command("cpm", "make")
-	actionLog.Println(args)
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	cmd.Run()
 }
 
