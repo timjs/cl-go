@@ -150,22 +150,32 @@ func runMove(conf config, oldmod, newmod string) {
 	os.Rename(oldpath+".icl", newpath+".icl")
 }
 
-func runBuild(conf config) {
+func runBuild(conf config, args ...string) {
 	actionLog.Println("Building project")
 
-	os.Chdir(conf.Project.Sourcedir)
+	if len(args) > 0 {
+		switch args[0] {
+		case "--old", "--cpm":
+			cmd := exec.Command("cpm", "make")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Run()
+		}
+	} else {
+		os.Chdir(conf.Project.Sourcedir)
 
-	args := make([]string, 0, 2*len(conf.Project.Libraries)+2)
-	for _, lib := range conf.Project.Libraries {
-		args = append(args, "-IL", lib)
+		args := make([]string, 0, 2*len(conf.Project.Libraries)+2)
+		for _, lib := range conf.Project.Libraries {
+			args = append(args, "-IL", lib)
+		}
+		args = append(args, conf.Executable.Main)
+		args = append(args, "-o", conf.Executable.Output)
+
+		cmd := exec.Command("clm", args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
 	}
-	args = append(args, conf.Executable.Main)
-	args = append(args, "-o", conf.Executable.Output)
-
-	cmd := exec.Command("clm", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Run()
 }
 
 func runRun(conf config) {
@@ -266,7 +276,7 @@ func main() {
 		case "move", "mv":
 			runMove(conf, os.Args[2], os.Args[3])
 		case "build":
-			runBuild(conf)
+			runBuild(conf, os.Args[2:]...)
 		case "run":
 			runRun(conf)
 		case "clean":
