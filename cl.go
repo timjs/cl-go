@@ -201,21 +201,20 @@ func unlitHelper(dir string, mod string) {
 	infoLog.Println(mod)
 
 	lfile, err := os.Open(lpath) // lpath already exists...
+	defer lfile.Close()
 	if err != nil {
 		exitOpenError(lpath, err)
 	}
 	ifile, err := os.Create(ipath)
+	defer ifile.Close()
 	if err != nil {
 		exitOpenError(ipath, err)
 	}
 	dfile, err := os.Create(dpath)
+	defer dfile.Close()
 	if err != nil {
 		exitOpenError(dpath, err)
 	}
-
-	defer lfile.Close()
-	defer ifile.Close()
-	defer dfile.Close()
 
 	scanner := bufio.NewScanner(lfile)
 	iwriter := bufio.NewWriter(ifile)
