@@ -162,9 +162,8 @@ func runBuild(conf config, args ...string) {
 			cmd.Run()
 		}
 	} else {
-		os.Chdir(conf.Project.Sourcedir)
-
-		args := make([]string, 0, 2*len(conf.Project.Libraries)+2)
+		args := make([]string, 0, 2*len(conf.Project.Libraries)+5)
+		args = append(args, "-I", conf.Project.Sourcedir)
 		for _, lib := range conf.Project.Libraries {
 			args = append(args, "-IL", lib)
 		}
