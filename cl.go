@@ -186,7 +186,7 @@ func runRun(conf config) {
 	cmd.Run()
 }
 
-func runClean() {
+func runClean(conf config) {
 	actionLog.Println("Cleaning files")
 
 	filepath.Walk(".", func(path string, _ os.FileInfo, _ error) error {
@@ -198,15 +198,14 @@ func runClean() {
 	})
 }
 
-func runPrune() {
-	runClean()
+func runPrune(conf config) {
+	runClean(conf)
 
 	actionLog.Println("Pruning files")
 
 	todo := make([]string, 0, 16)
-	globs, _ := filepath.Glob("*.exe")
-	todo = append(todo, globs...)
-	globs, _ = filepath.Glob("*-data/")
+	todo = append(todo, conf.Executable.Output)
+	globs, _ := filepath.Glob("*-data/")
 	todo = append(todo, globs...)
 
 	for _, f := range todo {
@@ -280,9 +279,9 @@ func main() {
 		case "run":
 			runRun(conf)
 		case "clean":
-			runClean()
+			runClean(conf)
 		case "prune":
-			runPrune()
+			runPrune(conf)
 		default:
 			exitInvalidCommand(os.Args[1])
 		}
