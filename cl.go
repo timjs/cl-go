@@ -1,12 +1,18 @@
 package main
 
+// TODO
+// - add/remove/move modules in config too
+
 import (
+	"bufio"
+	"bytes"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/naoina/toml"
 )
@@ -48,11 +54,12 @@ var (
 	infoLog   = log.New(os.Stdout, "    ", 0)
 	actionLog = log.New(os.Stdout, ">>> ", 0)
 	errorLog  = log.New(os.Stderr, "!!! ", 0)
+	debugLog  = log.New(os.Stderr, "... ", 0)
 )
 
 var (
-	pathToModule = strings.NewReplacer("/", ".")
-	moduleToPath = strings.NewReplacer(".", "/")
+	slashToDot = strings.NewReplacer(string(os.PathSeparator), ".")
+	dotToSlash = strings.NewReplacer(".", string(os.PathSeparator))
 )
 
 // Config //////////////////////////////////////////////////////////////////////
@@ -63,8 +70,10 @@ type config struct {
 		Version string
 		Authors []string
 
-		Sourcedir string
-		Libraries []string
+		Sourcedir    string
+		Modules      []string
+		OtherModules []string
+		Libraries    []string
 	}
 
 	Executable struct {
@@ -82,7 +91,7 @@ func readProjectFile() config {
 
 	var conf config
 	if err := toml.Unmarshal(buf, &conf); err != nil {
-		exitProjectParseError(err)
+		exitParseError(err)
 	}
 
 	return conf
@@ -112,16 +121,16 @@ func runAdd(conf config, mods ...string) {
 	for _, mod := range mods {
 		actionLog.Println("Creating module", quote(mod))
 
-		path := moduleToPath.Replace(mod)
+		path := dotToSlash.Replace(mod)
 		os.MkdirAll(filepath.Dir(path), 0755)
 
 		dcl, _ := os.Create(path + ".dcl")
 		defer dcl.Close()
 		dcl.WriteString("definition module " + mod + "\n\n")
 
-		icl, _ := os.Create(path + ".icl")
-		defer icl.Close()
-		icl.WriteString("implementation module " + mod + "\n\n")
+		ipath, _ := os.Create(path + ".ipath")
+		defer ipath.Close()
+		ipath.WriteString("implementation module " + mod + "\n\n")
 	}
 }
 
@@ -131,9 +140,9 @@ func runRemove(conf config, mods ...string) {
 	for _, mod := range mods {
 		actionLog.Println("Removing module", quote(mod))
 
-		path := moduleToPath.Replace(mod)
+		path := dotToSlash.Replace(mod)
 		os.Remove(path + ".dcl")
-		os.Remove(path + ".icl")
+		os.Remove(path + ".ipath")
 	}
 }
 
@@ -142,12 +151,100 @@ func runMove(conf config, oldmod, newmod string) {
 
 	os.Chdir(conf.Project.Sourcedir)
 
-	oldpath := moduleToPath.Replace(oldmod)
-	newpath := moduleToPath.Replace(newmod)
+	oldpath := dotToSlash.Replace(oldmod)
+	newpath := dotToSlash.Replace(newmod)
 
 	os.MkdirAll(filepath.Dir(newpath), 0755)
 	os.Rename(oldpath+".dcl", newpath+".dcl")
-	os.Rename(oldpath+".icl", newpath+".icl")
+	os.Rename(oldpath+".ipath", newpath+".ipath")
+}
+
+func runUnlit(conf config) {
+	actionLog.Println("Unliterating modules")
+
+	for _, mod := range conf.Project.Modules {
+		unlitHelper(conf.Project.Sourcedir, mod)
+	}
+	for _, mod := range conf.Project.OtherModules {
+		unlitHelper(conf.Project.Sourcedir, mod)
+	}
+}
+
+func unlitHelper(dir string, mod string) {
+	path := filepath.Join(dir, dotToSlash.Replace(mod))
+	lpath := path + ".lcl"
+	ipath := path + ".icl"
+	dpath := path + ".dcl"
+
+	lstat, err := os.Stat(lpath)
+	if err != nil {
+		// debugLog.Println("No literate file for", mod)
+		return
+	}
+	mtime := lstat.ModTime()
+
+	var itime, dtime time.Time
+	istat, err := os.Stat(ipath)
+	if err == nil {
+		itime = istat.ModTime()
+	}
+	dstat, err := os.Stat(dpath)
+	if err == nil {
+		dtime = dstat.ModTime()
+	}
+
+	if mtime.Before(itime) && mtime.Before(dtime) {
+		// debugLog.Println("Everything up-to-date for", mod)
+		return
+	}
+
+	infoLog.Println(mod)
+
+	lfile, err := os.Open(lpath) // lpath already exists...
+	if err != nil {
+		exitOpenError(lpath, err)
+	}
+	ifile, err := os.Create(ipath)
+	if err != nil {
+		exitOpenError(ipath, err)
+	}
+	dfile, err := os.Create(dpath)
+	if err != nil {
+		exitOpenError(dpath, err)
+	}
+
+	defer lfile.Close()
+	defer ifile.Close()
+	defer dfile.Close()
+
+	scanner := bufio.NewScanner(lfile)
+	iwriter := bufio.NewWriter(ifile)
+	defer iwriter.Flush()
+	dwriter := bufio.NewWriter(dfile)
+	defer dwriter.Flush()
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if bytes.HasPrefix(line, []byte("< module")) {
+			iwriter.WriteString("implementation ")
+			iwriter.Write(line[2:])
+			iwriter.WriteString("\n")
+			dwriter.WriteString("definition ")
+			dwriter.Write(line[2:])
+			dwriter.WriteString("\n")
+		} else if bytes.HasPrefix(line, []byte("< ")) {
+			iwriter.Write(line[2:])
+			iwriter.WriteString("\n")
+			dwriter.Write(line[2:])
+			dwriter.WriteString("\n")
+		} else if bytes.HasPrefix(line, []byte("> ")) {
+			iwriter.Write(line[2:])
+			iwriter.WriteString("\n")
+			dwriter.WriteString("\n")
+		} else {
+			iwriter.WriteString("\n")
+			dwriter.WriteString("\n")
+		}
+	}
 }
 
 func runBuild(conf config, args ...string) {
@@ -238,10 +335,19 @@ func exitIfNotProject() {
 	}
 }
 
-func exitProjectParseError(err error) {
-	errorLog.Println("Error parsing project file:")
-	infoLog.Println(err)
+func exitParseError(err error) {
+	errorLog.Println("Error parsing project file:", err)
 	os.Exit(3)
+}
+
+func exitStatError(path string, err error) {
+	errorLog.Println("Error stating", path, err)
+	os.Exit(4)
+}
+
+func exitOpenError(path string, err error) {
+	errorLog.Println("Error opening", path, err)
+	os.Exit(5)
 }
 
 // Main ////////////////////////////////////////////////////////////////////////
@@ -273,7 +379,10 @@ func main() {
 			runRemove(conf, os.Args[2:]...)
 		case "move", "mv":
 			runMove(conf, os.Args[2], os.Args[3])
+		case "unlit":
+			runUnlit(conf)
 		case "build":
+			runUnlit(conf)
 			runBuild(conf, os.Args[2:]...)
 		case "run":
 			runRun(conf)
