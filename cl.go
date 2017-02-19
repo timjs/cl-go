@@ -28,10 +28,11 @@ Usage:
 Available commands include:
     help
     init
+    info
     add, create
     remove, rm, delete
     move, mv
-    switch
+    unlit
     build
     run
     clean
@@ -51,10 +52,11 @@ func quote(s string) string {
 }
 
 var (
-	infoLog   = log.New(os.Stdout, "    ", 0)
-	actionLog = log.New(os.Stdout, ">>> ", 0)
-	errorLog  = log.New(os.Stderr, "!!! ", 0)
-	debugLog  = log.New(os.Stderr, "... ", 0)
+	actionLog  = log.New(os.Stdout, ">> ", 0)
+	infoLog    = log.New(os.Stdout, ":: ", 0)
+	warningLog = log.New(os.Stderr, "** ", 0)
+	errorLog   = log.New(os.Stderr, "!! ", 0)
+	debugLog   = log.New(os.Stderr, ".. ", 0)
 )
 
 var (
@@ -83,15 +85,20 @@ type config struct {
 }
 
 func readProjectFile() config {
-	// We already checked if this is a project!
-	file, _ := os.Open(projectfile)
+	file, err := os.Open(projectfile)
 	defer file.Close()
+	if err != nil {
+		errorLog.Fatalln("Could not find a project file, run 'cl init' to initialise a project")
+	}
 
-	buf, _ := ioutil.ReadAll(file)
+	bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		errorLog.Fatalln("Could not read project file", err)
+	}
 
 	var conf config
-	if err := toml.Unmarshal(buf, &conf); err != nil {
-		exitParseError(err)
+	if err := toml.Unmarshal(bytes, &conf); err != nil {
+		errorLog.Fatalln("Could not parse project file", err)
 	}
 
 	return conf
@@ -203,17 +210,17 @@ func unlitHelper(dir string, mod string) {
 	lfile, err := os.Open(lpath) // lpath already exists...
 	defer lfile.Close()
 	if err != nil {
-		exitOpenError(lpath, err)
+		errorLog.Fatalln("Could not open", quote(path), err)
 	}
 	ifile, err := os.Create(ipath)
 	defer ifile.Close()
 	if err != nil {
-		exitOpenError(ipath, err)
+		errorLog.Fatalln("Could not open", quote(path), err)
 	}
 	dfile, err := os.Create(dpath)
 	defer dfile.Close()
 	if err != nil {
-		exitOpenError(dpath, err)
+		errorLog.Fatalln("Could not open", quote(path), err)
 	}
 
 	scanner := bufio.NewScanner(lfile)
@@ -247,6 +254,8 @@ func unlitHelper(dir string, mod string) {
 }
 
 func runBuild(conf config, args ...string) {
+	runUnlit(conf)
+
 	actionLog.Println("Building project")
 
 	if len(args) > 0 {
@@ -273,11 +282,12 @@ func runBuild(conf config, args ...string) {
 	}
 }
 
-func runRun(conf config) {
+func runRun(conf config) { //FIXME
 	actionLog.Println("Running project")
 
-	cmd := exec.Command(conf.Executable.Main)
+	cmd := exec.Command(conf.Executable.Output)
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	cmd.Run()
 }
 
@@ -309,52 +319,12 @@ func runPrune(conf config) {
 	}
 }
 
-func runSwitch() {
-	errorLog.Println("Not yet implemented")
-}
-
-// Exits ///////////////////////////////////////////////////////////////////////
-
-func exitNoCommand() {
-	infoLog.Println(usage)
-	os.Exit(1)
-}
-
-func exitInvalidCommand(cmd string) {
-	errorLog.Println(quote(cmd), "is not a valid command")
-	infoLog.Println("Run 'cl help' to see a list of all available commands")
-	os.Exit(1)
-}
-
-func exitIfNotProject() {
-	if _, err := os.Stat(projectfile); err != nil {
-		errorLog.Println("This is not a Clean project directory")
-		infoLog.Println("Run 'cl init' to initialise a project")
-		os.Exit(2)
-	}
-}
-
-func exitParseError(err error) {
-	errorLog.Println("Error parsing project file:", err)
-	os.Exit(3)
-}
-
-func exitStatError(path string, err error) {
-	errorLog.Println("Error stating", path, err)
-	os.Exit(4)
-}
-
-func exitOpenError(path string, err error) {
-	errorLog.Println("Error opening", path, err)
-	os.Exit(5)
-}
-
 // Main ////////////////////////////////////////////////////////////////////////
 
 func main() {
 
 	if len(os.Args) == 1 {
-		exitNoCommand()
+		infoLog.Fatalln(usage)
 	}
 
 	switch os.Args[1] {
@@ -362,11 +332,8 @@ func main() {
 		runHelp()
 	case "init":
 		runInit()
-	case "switch":
-		runSwitch()
 	default:
 		// For other options we need to be in a project directory
-		exitIfNotProject()
 		conf := readProjectFile()
 
 		switch os.Args[1] {
@@ -381,7 +348,6 @@ func main() {
 		case "unlit":
 			runUnlit(conf)
 		case "build":
-			runUnlit(conf)
 			runBuild(conf, os.Args[2:]...)
 		case "run":
 			runRun(conf)
@@ -390,7 +356,7 @@ func main() {
 		case "prune":
 			runPrune(conf)
 		default:
-			exitInvalidCommand(os.Args[1])
+			errorLog.Fatalln(quote(os.Args[1]), "is not a valid command, run 'cl help' to see a list of all available commands")
 		}
 	}
 }
