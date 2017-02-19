@@ -226,7 +226,7 @@ func exitNoCommand() {
 
 func exitInvalidCommand(cmd string) {
 	errorLog.Println(quote(cmd), "is not a valid command")
-	errorLog.Println("Run 'cl help' to see a list of all available commands")
+	infoLog.Println("Run 'cl help' to see a list of all available commands")
 	os.Exit(1)
 }
 
