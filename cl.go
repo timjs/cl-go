@@ -2,6 +2,7 @@ package main
 
 // TODO
 // - add/remove/move modules in config too
+// - remove `os.Chdir`s
 
 import (
 	"bufio"
@@ -82,6 +83,11 @@ type config struct {
 		Main   string
 		Output string
 	}
+
+	// Library struct {
+	//     Exported []string
+	//     Internal []string
+	// }
 }
 
 func readProjectFile() config {
@@ -135,7 +141,7 @@ func runAdd(conf config, mods ...string) {
 		defer dcl.Close()
 		dcl.WriteString("definition module " + mod + "\n\n")
 
-		ipath, _ := os.Create(path + ".ipath")
+		ipath, _ := os.Create(path + ".icl")
 		defer ipath.Close()
 		ipath.WriteString("implementation module " + mod + "\n\n")
 	}
@@ -168,6 +174,8 @@ func runMove(conf config, oldmod, newmod string) {
 
 func runUnlit(conf config) {
 	actionLog.Println("Unliterating modules")
+
+	unlitHelper(conf.Project.Sourcedir, conf.Executable.Main)
 
 	for _, mod := range conf.Project.Modules {
 		unlitHelper(conf.Project.Sourcedir, mod)
