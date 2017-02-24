@@ -155,7 +155,7 @@ func runRemove(conf config, mods ...string) {
 
 		path := dotToSlash.Replace(mod)
 		os.Remove(path + ".dcl")
-		os.Remove(path + ".ipath")
+		os.Remove(path + ".icl")
 	}
 }
 
@@ -169,7 +169,7 @@ func runMove(conf config, oldmod, newmod string) {
 
 	os.MkdirAll(filepath.Dir(newpath), 0755)
 	os.Rename(oldpath+".dcl", newpath+".dcl")
-	os.Rename(oldpath+".ipath", newpath+".ipath")
+	os.Rename(oldpath+".icl", newpath+".icl")
 }
 
 func runUnlit(conf config) {
