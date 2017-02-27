@@ -37,10 +37,10 @@ Available commands include:
     build
     run
     clean
-    prune
+    prune`
 
-You can learn more about a specific command by running:
-    cl <command> --help`
+// You can learn more about a specific command by running:
+//     cl <command> --help`
 
 // In all these cases we are simply running 'cl-<command>' so if you create an
 // executable named 'cl-foobar' you will be able to run it as 'cl foobar' as
