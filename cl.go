@@ -36,6 +36,7 @@ Available commands include:
     unlit
     build
     run
+    list
     clean
     prune`
 
@@ -284,13 +285,7 @@ func runBuild(conf config, args ...string) {
 			cmd.Run()
 		}
 	} else {
-		args := make([]string, 0, 2*len(conf.Project.Libraries)+5)
-		args = append(args, "-I", conf.Project.Sourcedir)
-		for _, lib := range conf.Project.Libraries {
-			args = append(args, "-IL", lib)
-		}
-		args = append(args, conf.Executable.Main)
-		args = append(args, "-o", conf.Executable.Output)
+		args := buildArgs(conf, conf.Executable.Main, "-o", conf.Executable.Output)
 
 		cmd := exec.Command("clm", args...)
 		cmd.Stdout = os.Stdout
@@ -306,6 +301,27 @@ func runRun(conf config) { //FIXME
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
+}
+
+func runList(conf config) {
+	actionLog.Println("Collecting types of functions")
+
+	args := buildArgs(conf, "-lat", conf.Executable.Main)
+
+	cmd := exec.Command("clm", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
+func buildArgs(conf config, extra ...string) []string {
+	args := make([]string, 0, 2*len(conf.Project.Libraries)+len(extra)) // Reserve space for possible additional arguments
+	args = append(args, "-I", conf.Project.Sourcedir)
+	for _, lib := range conf.Project.Libraries {
+		args = append(args, "-IL", lib)
+	}
+	args = append(args, extra...)
+	return args
 }
 
 func runClean(conf config) {
@@ -368,6 +384,8 @@ func main() {
 			runBuild(conf, os.Args[2:]...)
 		case "run":
 			runRun(conf)
+		case "list":
+			runList(conf)
 		case "clean":
 			runClean(conf)
 		case "prune":
