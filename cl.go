@@ -271,30 +271,22 @@ func unlitHelper(dir string, mod string) {
 	}
 }
 
-func runBuild(conf config, args ...string) {
+func runBuild(conf config) {
 	runUnlit(conf)
 
 	actionLog.Println("Building project")
 
-	if len(args) > 0 {
-		switch args[0] {
-		case "--old", "--cpm":
-			cmd := exec.Command("cpm", "make")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Run()
-		}
-	} else {
-		args := buildArgs(conf, conf.Executable.Main, "-o", conf.Executable.Output)
+	args := buildArgs(conf, conf.Executable.Main, "-o", conf.Executable.Output)
 
-		cmd := exec.Command("clm", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
-	}
+	cmd := exec.Command("clm", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
 }
 
 func runRun(conf config) { //FIXME
+	runBuild(conf)
+
 	actionLog.Println("Running project")
 
 	cmd := exec.Command(conf.Executable.Output)
@@ -381,7 +373,7 @@ func main() {
 		case "unlit":
 			runUnlit(conf)
 		case "build":
-			runBuild(conf, os.Args[2:]...)
+			runBuild(conf)
 		case "run":
 			runRun(conf)
 		case "list":
