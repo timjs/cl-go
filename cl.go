@@ -65,6 +65,12 @@ var (
 	dotToSlash = strings.NewReplacer(".", string(os.PathSeparator))
 )
 
+var (
+	headerPrefix   = []byte(">> module ")
+	exportedPrefix = []byte(">> ")
+	internalPrefix = []byte(">  ") //XXX be aware of the double spaces!!!
+)
+
 // Config //////////////////////////////////////////////////////////////////////
 
 type config struct {
@@ -238,20 +244,23 @@ func unlitHelper(dir string, mod string) {
 	defer dwriter.Flush()
 	for scanner.Scan() {
 		line := scanner.Bytes()
-		if bytes.HasPrefix(line, []byte("< module")) {
+		if bytes.HasPrefix(line, headerPrefix) {
+			code := bytes.TrimPrefix(line, exportedPrefix)
 			iwriter.WriteString("implementation ")
-			iwriter.Write(line[2:])
+			iwriter.Write(code)
 			iwriter.WriteString("\n")
 			dwriter.WriteString("definition ")
-			dwriter.Write(line[2:])
+			dwriter.Write(code)
 			dwriter.WriteString("\n")
-		} else if bytes.HasPrefix(line, []byte("< ")) {
-			iwriter.Write(line[2:])
+		} else if bytes.HasPrefix(line, []byte(exportedPrefix)) {
+			code := bytes.TrimPrefix(line, exportedPrefix)
+			iwriter.Write(code)
 			iwriter.WriteString("\n")
-			dwriter.Write(line[2:])
+			dwriter.Write(code)
 			dwriter.WriteString("\n")
-		} else if bytes.HasPrefix(line, []byte("> ")) {
-			iwriter.Write(line[2:])
+		} else if bytes.HasPrefix(line, []byte(internalPrefix)) {
+			code := bytes.TrimPrefix(line, internalPrefix)
+			iwriter.Write(code)
 			iwriter.WriteString("\n")
 			dwriter.WriteString("\n")
 		} else {
