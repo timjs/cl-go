@@ -296,6 +296,8 @@ func runRun(conf config) { //FIXME
 }
 
 func runList(conf config) {
+	runUnlit(conf)
+
 	actionLog.Println("Collecting types of functions")
 
 	args := buildArgs(conf, "-lat", conf.Executable.Main)
