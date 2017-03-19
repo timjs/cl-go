@@ -284,15 +284,18 @@ func runBuild(conf config) {
 	cmd.Run()
 }
 
-func runRun(conf config) { //FIXME
+func runRun(conf config) {
 	runBuild(conf)
 
 	actionLog.Println("Running project")
 
-	cmd := exec.Command(conf.Executable.Output)
+	cmd := exec.Command("./" + conf.Executable.Output)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	//NOTE: `cmd.Run()` lets your ignore the error and silently fails if command could not be found...
+	if err := cmd.Run(); err != nil {
+		errorLog.Fatalln(err)
+	}
 }
 
 func runList(conf config) {
