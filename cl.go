@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/naoina/toml"
@@ -34,7 +35,7 @@ Available commands include:
     remove, rm, delete
     move, mv
     unlit
-    build
+    build, legacybuild
     run
     list
     clean
@@ -46,6 +47,68 @@ Available commands include:
 // In all these cases we are simply running 'cl-<command>' so if you create an
 // executable named 'cl-foobar' you will be able to run it as 'cl foobar' as
 // long as it appears on your PATH.`,
+
+const legacyprojectfile = "Project.prj"
+const legacyconfig = `Version: 1.4
+Global
+	ProjectRoot:	.
+	Target:	iTasks
+	Exec:	{Project}/{{.Executable.Output}}
+	CodeGen
+		CheckStacks:	False
+		CheckIndexes:	True
+	Application
+		HeapSize:	2097152
+		StackSize:	512000
+		ExtraMemory:	8192
+		IntialHeapSize:	204800
+		HeapSizeMultiplier:	4096
+		ShowExecutionTime:	False
+		ShowGC:	False
+		ShowStackSize:	False
+		MarkingCollector:	False
+		DisableRTSFlags:	False
+		StandardRuntimeEnv:	True
+		Profile
+			Memory:	False
+			MemoryMinimumHeapSize:	0
+			Time:	False
+			Stack:	False
+			Dynamics:	False
+			DescExL:	False
+		Output
+			Output:	ShowConstructors
+			Font:	Monaco
+			FontSize:	9
+			WriteStdErr:	False
+	Link
+		LinkMethod:	Static
+		GenerateRelocations:	False
+		GenerateSymbolTable:	False
+		GenerateLinkMap:	False
+		LinkResources:	False
+		ResourceSource:
+		GenerateDLL:	False
+		ExportedNames:
+	Paths
+		Path:	{Project}/{{.Project.Sourcedir}}
+	Precompile:
+	Postlink:
+MainModule
+	Name:	{{.Executable.Main}}
+	Dir:	{Project}/{{.Project.Sourcedir}}
+	Compiler
+		NeverMemoryProfile:	False
+		NeverTimeProfile:	False
+		StrictnessAnalysis:	True
+		ListTypes:	StrictExportTypes
+		ListAttributes:	True
+		Warnings:	True
+		Verbose:	True
+		ReadableABC:	False
+		ReuseUniqueNodes:	True
+		Fusion:	False
+`
 
 // Helpers /////////////////////////////////////////////////////////////////////
 
@@ -286,6 +349,28 @@ func (prj *project) Build() {
 	cmd.Run()
 }
 
+func (prj *project) LegacyBuild() {
+	prj.Unlit()
+
+	actionLog.Println("Building project")
+
+	temp := template.Must(template.New("legacyconfig").Parse(legacyconfig))
+	out, err := os.Create(legacyprojectfile)
+	defer out.Close()
+	if err != nil {
+		errorLog.Fatalln("Could not create", quote(legacyprojectfile), err)
+	}
+	err = temp.Execute(out, prj.Config)
+	if err != nil {
+		errorLog.Fatalln("Error writing legacy configuration file", err)
+	}
+
+	cmd := exec.Command("cpm", "make")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
 func (prj *project) Run() {
 	prj.Build()
 
@@ -381,6 +466,8 @@ func main() {
 			prj.Unlit()
 		case "build":
 			prj.Build()
+		case "legacybuild":
+			prj.LegacyBuild()
 		case "run":
 			prj.Run()
 		case "list":
