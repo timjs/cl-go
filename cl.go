@@ -97,7 +97,13 @@ type config struct {
 	// }
 }
 
-func readProjectFile() config {
+// Project /////////////////////////////////////////////////////////////////////
+
+type project struct {
+	Config config
+}
+
+func newProject() project {
 	file, err := os.Open(projectfile)
 	defer file.Close()
 	if err != nil {
@@ -114,29 +120,25 @@ func readProjectFile() config {
 		errorLog.Fatalln("Could not parse project file", err)
 	}
 
-	return conf
+	return project{conf}
 }
 
-// Commands ////////////////////////////////////////////////////////////////////
-
-func runHelp() {
-	infoLog.Println(usage)
-}
-
-func runInit() {
+func initProject() {
 	actionLog.Println("Initializing new project")
 
 	os.Mkdir("src", 0755)
 	os.Mkdir("test", 0755)
 }
 
-func runInfo(conf config) {
+// Commands ////////////////////////////////////////////////////////////////////
+
+func (prj *project) Info() {
 	actionLog.Println("Showing information about current project")
-	infoLog.Println(conf)
+	infoLog.Println(prj.Config)
 }
 
-func runAdd(conf config, mods ...string) {
-	os.Chdir(conf.Project.Sourcedir)
+func (prj *project) Add(mods ...string) {
+	os.Chdir(prj.Config.Project.Sourcedir)
 
 	for _, mod := range mods {
 		actionLog.Println("Creating module", quote(mod))
@@ -154,8 +156,8 @@ func runAdd(conf config, mods ...string) {
 	}
 }
 
-func runRemove(conf config, mods ...string) {
-	os.Chdir(conf.Project.Sourcedir)
+func (prj *project) Remove(mods ...string) {
+	os.Chdir(prj.Config.Project.Sourcedir)
 
 	for _, mod := range mods {
 		actionLog.Println("Removing module", quote(mod))
@@ -166,10 +168,10 @@ func runRemove(conf config, mods ...string) {
 	}
 }
 
-func runMove(conf config, oldmod, newmod string) {
+func (prj *project) Move(oldmod, newmod string) {
 	actionLog.Println("Moving", quote(oldmod), "to", quote(newmod))
 
-	os.Chdir(conf.Project.Sourcedir)
+	os.Chdir(prj.Config.Project.Sourcedir)
 
 	oldpath := dotToSlash.Replace(oldmod)
 	newpath := dotToSlash.Replace(newmod)
@@ -179,16 +181,16 @@ func runMove(conf config, oldmod, newmod string) {
 	os.Rename(oldpath+".icl", newpath+".icl")
 }
 
-func runUnlit(conf config) {
+func (prj *project) Unlit() {
 	actionLog.Println("Unliterating modules")
 
-	unlitHelper(conf.Project.Sourcedir, conf.Executable.Main)
+	unlitHelper(prj.Config.Project.Sourcedir, prj.Config.Executable.Main)
 
-	for _, mod := range conf.Project.Modules {
-		unlitHelper(conf.Project.Sourcedir, mod)
+	for _, mod := range prj.Config.Project.Modules {
+		unlitHelper(prj.Config.Project.Sourcedir, mod)
 	}
-	for _, mod := range conf.Project.OtherModules {
-		unlitHelper(conf.Project.Sourcedir, mod)
+	for _, mod := range prj.Config.Project.OtherModules {
+		unlitHelper(prj.Config.Project.Sourcedir, mod)
 	}
 }
 
@@ -271,12 +273,12 @@ func unlitHelper(dir string, mod string) {
 	}
 }
 
-func runBuild(conf config) {
-	runUnlit(conf)
+func (prj *project) Build() {
+	prj.Unlit()
 
 	actionLog.Println("Building project")
 
-	args := buildArgs(conf, conf.Executable.Main, "-o", conf.Executable.Output)
+	args := buildArgs(prj.Config, prj.Config.Executable.Main, "-o", prj.Config.Executable.Output)
 
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
@@ -284,12 +286,12 @@ func runBuild(conf config) {
 	cmd.Run()
 }
 
-func runRun(conf config) {
-	runBuild(conf)
+func (prj *project) Run() {
+	prj.Build()
 
 	actionLog.Println("Running project")
 
-	cmd := exec.Command("./" + conf.Executable.Output)
+	cmd := exec.Command("./" + prj.Config.Executable.Output)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	//NOTE: `cmd.Run()` lets your ignore the error and silently fails if command could not be found...
@@ -298,12 +300,12 @@ func runRun(conf config) {
 	}
 }
 
-func runList(conf config) {
-	runUnlit(conf)
+func (prj *project) List() {
+	prj.Unlit()
 
 	actionLog.Println("Collecting types of functions")
 
-	args := buildArgs(conf, "-lat", conf.Executable.Main)
+	args := buildArgs(prj.Config, "-lat", prj.Config.Executable.Main)
 
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
@@ -321,7 +323,7 @@ func buildArgs(conf config, extra ...string) []string {
 	return args
 }
 
-func runClean(conf config) {
+func (prj *project) Clean() {
 	actionLog.Println("Cleaning files")
 
 	filepath.Walk(".", func(path string, _ os.FileInfo, _ error) error {
@@ -333,13 +335,13 @@ func runClean(conf config) {
 	})
 }
 
-func runPrune(conf config) {
-	runClean(conf)
+func (prj *project) Prune() {
+	prj.Clean()
 
 	actionLog.Println("Pruning files")
 
 	todo := make([]string, 0, 16)
-	todo = append(todo, conf.Executable.Output)
+	todo = append(todo, prj.Config.Executable.Output)
 	globs, _ := filepath.Glob("*-data/")
 	todo = append(todo, globs...)
 
@@ -359,34 +361,34 @@ func main() {
 
 	switch os.Args[1] {
 	case "help":
-		runHelp()
+		infoLog.Println(usage)
 	case "init":
-		runInit()
+		initProject()
 	default:
 		// For other options we need to be in a project directory
-		conf := readProjectFile()
+		prj := newProject()
 
 		switch os.Args[1] {
 		case "info":
-			runInfo(conf)
+			prj.Info()
 		case "add", "create":
-			runAdd(conf, os.Args[2:]...)
+			prj.Add(os.Args[2:]...)
 		case "remove", "rm", "delete":
-			runRemove(conf, os.Args[2:]...)
+			prj.Remove(os.Args[2:]...)
 		case "move", "mv":
-			runMove(conf, os.Args[2], os.Args[3])
+			prj.Move(os.Args[2], os.Args[3])
 		case "unlit":
-			runUnlit(conf)
+			prj.Unlit()
 		case "build":
-			runBuild(conf)
+			prj.Build()
 		case "run":
-			runRun(conf)
+			prj.Run()
 		case "list":
-			runList(conf)
+			prj.List()
 		case "clean":
-			runClean(conf)
+			prj.Clean()
 		case "prune":
-			runPrune(conf)
+			prj.Prune()
 		default:
 			errorLog.Fatalln(quote(os.Args[1]), "is not a valid command, run 'cl help' to see a list of all available commands")
 		}
