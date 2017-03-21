@@ -21,8 +21,8 @@ import (
 
 // Constants ///////////////////////////////////////////////////////////////////
 
-const projectfile = "Project.toml"
-const usage = `Clean command line tools
+const PROJECT_FILE = "Project.toml"
+const USAGE = `Clean command line tools
 
 Usage:
     cl <command> [<args>...]
@@ -48,8 +48,8 @@ Available commands include:
 // executable named 'cl-foobar' you will be able to run it as 'cl foobar' as
 // long as it appears on your PATH.`,
 
-const legacyprojectfile = "Project.prj"
-const legacyconfig = `Version: 1.4
+const LEGACY_PROJECT_FILE = "Project.prj"
+const LEGACY_CONFIG = `Version: 1.4
 Global
 	ProjectRoot:	.
 	Target:	iTasks
@@ -137,7 +137,7 @@ var (
 
 // Config //////////////////////////////////////////////////////////////////////
 
-type config struct {
+type Config struct {
 	Project struct {
 		Name    string
 		Version string
@@ -162,12 +162,12 @@ type config struct {
 
 // Project /////////////////////////////////////////////////////////////////////
 
-type project struct {
-	Config config
+type Project struct {
+	Config Config
 }
 
-func newProject() project {
-	file, err := os.Open(projectfile)
+func NewProject() Project {
+	file, err := os.Open(PROJECT_FILE)
 	defer file.Close()
 	if err != nil {
 		errorLog.Fatalln("Could not find a project file, run 'cl init' to initialise a project")
@@ -178,15 +178,15 @@ func newProject() project {
 		errorLog.Fatalln("Could not read project file", err)
 	}
 
-	var conf config
+	var conf Config
 	if err := toml.Unmarshal(bytes, &conf); err != nil {
 		errorLog.Fatalln("Could not parse project file", err)
 	}
 
-	return project{conf}
+	return Project{conf}
 }
 
-func initProject() {
+func InitProject() {
 	actionLog.Println("Initializing new project")
 
 	os.Mkdir("src", 0755)
@@ -195,12 +195,12 @@ func initProject() {
 
 // Commands ////////////////////////////////////////////////////////////////////
 
-func (prj *project) Info() {
+func (prj *Project) Info() {
 	actionLog.Println("Showing information about current project")
 	infoLog.Println(prj.Config)
 }
 
-func (prj *project) Add(mods ...string) {
+func (prj *Project) Add(mods ...string) {
 	os.Chdir(prj.Config.Project.Sourcedir)
 
 	for _, mod := range mods {
@@ -219,7 +219,7 @@ func (prj *project) Add(mods ...string) {
 	}
 }
 
-func (prj *project) Remove(mods ...string) {
+func (prj *Project) Remove(mods ...string) {
 	os.Chdir(prj.Config.Project.Sourcedir)
 
 	for _, mod := range mods {
@@ -231,7 +231,7 @@ func (prj *project) Remove(mods ...string) {
 	}
 }
 
-func (prj *project) Move(oldmod, newmod string) {
+func (prj *Project) Move(oldmod, newmod string) {
 	actionLog.Println("Moving", quote(oldmod), "to", quote(newmod))
 
 	os.Chdir(prj.Config.Project.Sourcedir)
@@ -244,7 +244,7 @@ func (prj *project) Move(oldmod, newmod string) {
 	os.Rename(oldpath+".icl", newpath+".icl")
 }
 
-func (prj *project) Unlit() {
+func (prj *Project) Unlit() {
 	actionLog.Println("Unliterating modules")
 
 	unlitHelper(prj.Config.Project.Sourcedir, prj.Config.Executable.Main)
@@ -336,7 +336,7 @@ func unlitHelper(dir string, mod string) {
 	}
 }
 
-func (prj *project) Build() {
+func (prj *Project) Build() {
 	prj.Unlit()
 
 	actionLog.Println("Building project")
@@ -349,16 +349,16 @@ func (prj *project) Build() {
 	cmd.Run()
 }
 
-func (prj *project) LegacyBuild() {
+func (prj *Project) LegacyBuild() {
 	prj.Unlit()
 
 	actionLog.Println("Building project")
 
-	temp := template.Must(template.New("legacyconfig").Parse(legacyconfig))
-	out, err := os.Create(legacyprojectfile)
+	temp := template.Must(template.New("LEGACY_CONFIG").Parse(LEGACY_CONFIG))
+	out, err := os.Create(LEGACY_PROJECT_FILE)
 	defer out.Close()
 	if err != nil {
-		errorLog.Fatalln("Could not create", quote(legacyprojectfile), err)
+		errorLog.Fatalln("Could not create", quote(LEGACY_PROJECT_FILE), err)
 	}
 	err = temp.Execute(out, prj.Config)
 	if err != nil {
@@ -371,7 +371,7 @@ func (prj *project) LegacyBuild() {
 	cmd.Run()
 }
 
-func (prj *project) Run() {
+func (prj *Project) Run() {
 	prj.Build()
 
 	actionLog.Println("Running project")
@@ -385,7 +385,7 @@ func (prj *project) Run() {
 	}
 }
 
-func (prj *project) List() {
+func (prj *Project) List() {
 	prj.Unlit()
 
 	actionLog.Println("Collecting types of functions")
@@ -398,7 +398,7 @@ func (prj *project) List() {
 	cmd.Run()
 }
 
-func buildArgs(conf config, extra ...string) []string {
+func buildArgs(conf Config, extra ...string) []string {
 	args := make([]string, 0, 2*len(conf.Project.Libraries)+len(extra)) // Reserve space for possible additional arguments
 	args = append(args, "-I", conf.Project.Sourcedir)
 	for _, lib := range conf.Project.Libraries {
@@ -408,7 +408,7 @@ func buildArgs(conf config, extra ...string) []string {
 	return args
 }
 
-func (prj *project) Clean() {
+func (prj *Project) Clean() {
 	actionLog.Println("Cleaning files")
 
 	filepath.Walk(".", func(path string, _ os.FileInfo, _ error) error {
@@ -420,7 +420,7 @@ func (prj *project) Clean() {
 	})
 }
 
-func (prj *project) Prune() {
+func (prj *Project) Prune() {
 	prj.Clean()
 
 	actionLog.Println("Pruning files")
@@ -441,17 +441,17 @@ func (prj *project) Prune() {
 func main() {
 
 	if len(os.Args) == 1 {
-		infoLog.Fatalln(usage)
+		infoLog.Fatalln(USAGE)
 	}
 
 	switch os.Args[1] {
 	case "help":
-		infoLog.Println(usage)
+		infoLog.Println(USAGE)
 	case "init":
-		initProject()
+		InitProject()
 	default:
 		// For other options we need to be in a project directory
-		prj := newProject()
+		prj := NewProject()
 
 		switch os.Args[1] {
 		case "info":
