@@ -34,8 +34,9 @@ Available commands include:
     add, create
     remove, rm, delete
     move, mv
+    legacybuild, legacygen, legacyrun
     unlit
-    build, legacybuild
+    build
     run
     list
     clean
@@ -349,28 +350,6 @@ func (prj *Project) Build() {
 	cmd.Run()
 }
 
-func (prj *Project) LegacyBuild() {
-	prj.Unlit()
-
-	actionLog.Println("Building project")
-
-	temp := template.Must(template.New("LEGACY_CONFIG").Parse(LEGACY_CONFIG))
-	out, err := os.Create(LEGACY_PROJECT_FILE)
-	defer out.Close()
-	if err != nil {
-		errorLog.Fatalln("Could not create", quote(LEGACY_PROJECT_FILE), err)
-	}
-	err = temp.Execute(out, prj.Config)
-	if err != nil {
-		errorLog.Fatalln("Error writing legacy configuration file", err)
-	}
-
-	cmd := exec.Command("cpm", "make")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Run()
-}
-
 func (prj *Project) Run() {
 	prj.Build()
 
@@ -425,15 +404,50 @@ func (prj *Project) Prune() {
 
 	actionLog.Println("Pruning files")
 
-	todo := make([]string, 0, 16)
-	todo = append(todo, prj.Config.Executable.Output)
-	globs, _ := filepath.Glob("*-data/")
-	todo = append(todo, globs...)
-
-	for _, f := range todo {
-		infoLog.Println(f)
-		os.Remove(f)
+	//NOTE: How ugly...
+	todo := []string{"", "-data", "-sapl", "-www"}
+	for _, name := range todo {
+		path := prj.Config.Executable.Output + name
+		infoLog.Println(path)
+		os.RemoveAll(path)
 	}
+
+	infoLog.Println(LEGACY_PROJECT_FILE)
+	os.RemoveAll(LEGACY_PROJECT_FILE)
+}
+
+// Legacy commands /////////////////////////////////////////////////////////////
+
+func (prj *Project) LegacyGen() {
+	actionLog.Println("Generating legacy project configuration")
+
+	temp := template.Must(template.New("LEGACY_CONFIG").Parse(LEGACY_CONFIG))
+	out, err := os.Create(LEGACY_PROJECT_FILE)
+	defer out.Close()
+	if err != nil {
+		errorLog.Fatalln("Could not create", quote(LEGACY_PROJECT_FILE), err)
+	}
+	err = temp.Execute(out, prj.Config)
+	if err != nil {
+		errorLog.Fatalln("Error writing legacy configuration file", err)
+	}
+}
+
+func (prj *Project) LegacyBuild() {
+	prj.LegacyGen()
+	prj.Unlit()
+
+	actionLog.Println("Building project")
+
+	cmd := exec.Command("cpm", "make")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
+func (prj *Project) LegacyRun() {
+	prj.LegacyBuild()
+	prj.Run()
 }
 
 // Main ////////////////////////////////////////////////////////////////////////
@@ -466,8 +480,6 @@ func main() {
 			prj.Unlit()
 		case "build":
 			prj.Build()
-		case "legacybuild":
-			prj.LegacyBuild()
 		case "run":
 			prj.Run()
 		case "list":
@@ -476,6 +488,12 @@ func main() {
 			prj.Clean()
 		case "prune":
 			prj.Prune()
+		case "legacygen":
+			prj.LegacyGen()
+		case "legacybuild":
+			prj.LegacyBuild()
+		case "legacyrun":
+			prj.LegacyRun()
 		default:
 			errorLog.Fatalln(quote(os.Args[1]), "is not a valid command, run 'cl help' to see a list of all available commands")
 		}
