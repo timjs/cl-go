@@ -138,9 +138,9 @@ var (
 	internalPrefix = []byte(">  ") //XXX be aware of the double spaces!!!
 )
 
-// Config //////////////////////////////////////////////////////////////////////
+// Manifest ////////////////////////////////////////////////////////////////////
 
-type Config struct {
+type Manifest struct {
 	Project struct {
 		Name    string
 		Version string
@@ -166,7 +166,7 @@ type Config struct {
 // Project /////////////////////////////////////////////////////////////////////
 
 type Project struct {
-	Config Config
+	Manifest Manifest
 }
 
 func NewProject() Project {
@@ -181,12 +181,12 @@ func NewProject() Project {
 		errorLog.Fatalln("Could not read project file", err)
 	}
 
-	var conf Config
-	if err := toml.Unmarshal(bytes, &conf); err != nil {
+	var manifest Manifest
+	if err := toml.Unmarshal(bytes, &manifest); err != nil {
 		errorLog.Fatalln("Could not parse project file", err)
 	}
 
-	return Project{conf}
+	return Project{manifest}
 }
 
 func InitProject() {
@@ -200,11 +200,11 @@ func InitProject() {
 
 func (prj *Project) Info() {
 	actionLog.Println("Showing information about current project")
-	infoLog.Println(prj.Config)
+	infoLog.Println(prj.Manifest)
 }
 
 func (prj *Project) Add(mods ...string) {
-	os.Chdir(prj.Config.Project.Sourcedir)
+	os.Chdir(prj.Manifest.Project.Sourcedir)
 
 	for _, mod := range mods {
 		actionLog.Println("Creating module", quote(mod))
@@ -223,7 +223,7 @@ func (prj *Project) Add(mods ...string) {
 }
 
 func (prj *Project) Remove(mods ...string) {
-	os.Chdir(prj.Config.Project.Sourcedir)
+	os.Chdir(prj.Manifest.Project.Sourcedir)
 
 	for _, mod := range mods {
 		actionLog.Println("Removing module", quote(mod))
@@ -237,7 +237,7 @@ func (prj *Project) Remove(mods ...string) {
 func (prj *Project) Move(oldmod, newmod string) {
 	actionLog.Println("Moving", quote(oldmod), "to", quote(newmod))
 
-	os.Chdir(prj.Config.Project.Sourcedir)
+	os.Chdir(prj.Manifest.Project.Sourcedir)
 
 	oldpath := dotToSlash.Replace(oldmod)
 	newpath := dotToSlash.Replace(newmod)
@@ -250,13 +250,13 @@ func (prj *Project) Move(oldmod, newmod string) {
 func (prj *Project) Unlit() {
 	actionLog.Println("Unliterating modules")
 
-	unlitHelper(prj.Config.Project.Sourcedir, prj.Config.Executable.Main)
+	unlitHelper(prj.Manifest.Project.Sourcedir, prj.Manifest.Executable.Main)
 
-	for _, mod := range prj.Config.Project.Modules {
-		unlitHelper(prj.Config.Project.Sourcedir, mod)
+	for _, mod := range prj.Manifest.Project.Modules {
+		unlitHelper(prj.Manifest.Project.Sourcedir, mod)
 	}
-	for _, mod := range prj.Config.Project.OtherModules {
-		unlitHelper(prj.Config.Project.Sourcedir, mod)
+	for _, mod := range prj.Manifest.Project.OtherModules {
+		unlitHelper(prj.Manifest.Project.Sourcedir, mod)
 	}
 }
 
@@ -337,7 +337,7 @@ func (prj *Project) Build() {
 
 	actionLog.Println("Building project")
 
-	args := buildArgs(prj.Config, prj.Config.Executable.Main, "-o", prj.Config.Executable.Output)
+	args := buildArgs(prj.Manifest, prj.Manifest.Executable.Main, "-o", prj.Manifest.Executable.Output)
 
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
@@ -350,7 +350,7 @@ func (prj *Project) Run() {
 
 	actionLog.Println("Running project")
 
-	cmd := exec.Command("./" + prj.Config.Executable.Output)
+	cmd := exec.Command("./" + prj.Manifest.Executable.Output)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	//NOTE: `cmd.Run()` lets your ignore the error and silently fails if command could not be found...
@@ -364,7 +364,7 @@ func (prj *Project) List() {
 
 	actionLog.Println("Collecting types of functions")
 
-	args := buildArgs(prj.Config, "-lat", prj.Config.Executable.Main)
+	args := buildArgs(prj.Manifest, "-lat", prj.Manifest.Executable.Main)
 
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
@@ -372,10 +372,10 @@ func (prj *Project) List() {
 	cmd.Run()
 }
 
-func buildArgs(conf Config, extra ...string) []string {
-	args := make([]string, 0, 2*len(conf.Project.Libraries)+len(extra)) // Reserve space for possible additional arguments
-	args = append(args, "-I", conf.Project.Sourcedir)
-	for _, lib := range conf.Project.Libraries {
+func buildArgs(manifest Manifest, extra ...string) []string {
+	args := make([]string, 0, 2*len(manifest.Project.Libraries)+len(extra)) // Reserve space for possible additional arguments
+	args = append(args, "-I", manifest.Project.Sourcedir)
+	for _, lib := range manifest.Project.Libraries {
 		args = append(args, "-IL", lib)
 	}
 	args = append(args, extra...)
@@ -402,7 +402,7 @@ func (prj *Project) Prune() {
 	//NOTE: How ugly...
 	todo := []string{"", "-data", "-sapl", "-www"}
 	for _, name := range todo {
-		path := prj.Config.Executable.Output + name
+		path := prj.Manifest.Executable.Output + name
 		infoLog.Println(path)
 		os.RemoveAll(path)
 	}
@@ -422,7 +422,7 @@ func (prj *Project) LegacyGen() {
 	if err != nil {
 		errorLog.Fatalln("Could not create", quote(LEGACY_PROJECT_FILE), err)
 	}
-	err = temp.Execute(out, prj.Config)
+	err = temp.Execute(out, prj.Manifest)
 	if err != nil {
 		errorLog.Fatalln("Error writing legacy configuration file", err)
 	}
