@@ -7,6 +7,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -130,6 +131,7 @@ var (
 	dotToSlash = strings.NewReplacer(".", string(os.PathSeparator))
 )
 
+//NOTE: Can't be constants in Go
 var (
 	headerPrefix   = []byte(">> module ")
 	exportedPrefix = []byte(">> ")
@@ -313,26 +315,19 @@ func unlitHelper(dir string, mod string) {
 		line := scanner.Bytes()
 		if bytes.HasPrefix(line, headerPrefix) {
 			code := bytes.TrimPrefix(line, exportedPrefix)
-			iwriter.WriteString("implementation ")
-			iwriter.Write(code)
-			iwriter.WriteString("\n")
-			dwriter.WriteString("definition ")
-			dwriter.Write(code)
-			dwriter.WriteString("\n")
+			fmt.Fprintln(iwriter, "implementation", code)
+			fmt.Fprintln(dwriter, "definition", code)
 		} else if bytes.HasPrefix(line, []byte(exportedPrefix)) {
 			code := bytes.TrimPrefix(line, exportedPrefix)
-			iwriter.Write(code)
-			iwriter.WriteString("\n")
-			dwriter.Write(code)
-			dwriter.WriteString("\n")
+			fmt.Fprintln(iwriter, code)
+			fmt.Fprintln(dwriter, code)
 		} else if bytes.HasPrefix(line, []byte(internalPrefix)) {
 			code := bytes.TrimPrefix(line, internalPrefix)
-			iwriter.Write(code)
-			iwriter.WriteString("\n")
-			dwriter.WriteString("\n")
+			fmt.Fprintln(iwriter, code)
+			fmt.Fprintln(dwriter)
 		} else {
-			iwriter.WriteString("\n")
-			dwriter.WriteString("\n")
+			fmt.Fprintln(iwriter)
+			fmt.Fprintln(dwriter)
 		}
 	}
 }
