@@ -60,7 +60,7 @@ Global
 		CheckStacks:	False
 		CheckIndexes:	True
 	Application
-		HeapSize:	2097152
+		HeapSize:	20971520
 		StackSize:	512000
 		ExtraMemory:	8192
 		IntialHeapSize:	204800
@@ -76,7 +76,7 @@ Global
 			MemoryMinimumHeapSize:	0
 			Time:	False
 			Stack:	False
-			Dynamics:	False
+			Dynamics:	True
 			DescExL:	False
 		Output
 			Output:	ShowConstructors
