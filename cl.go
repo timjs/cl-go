@@ -347,7 +347,9 @@ func (prj *Project) Build() {
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		errorLog.Fatalln(err)
+	}
 }
 
 func (prj *Project) Run() {
@@ -374,7 +376,9 @@ func (prj *Project) List() {
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		errorLog.Fatalln(err)
+	}
 }
 
 func buildArgs(manifest Manifest, extra ...string) []string {
@@ -442,12 +446,22 @@ func (prj *Project) LegacyBuild() {
 	cmd := exec.Command("cpm", "make")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		errorLog.Fatalln(err)
+	}
 }
 
 func (prj *Project) LegacyRun() {
 	prj.LegacyBuild()
-	prj.Run()
+
+	actionLog.Println("Running project")
+
+	cmd := exec.Command("./" + prj.Manifest.Executable.Output)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		errorLog.Fatalln(err)
+	}
 }
 
 // Main ////////////////////////////////////////////////////////////////////////
