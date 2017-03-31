@@ -113,6 +113,12 @@ MainModule
 
 // Helpers /////////////////////////////////////////////////////////////////////
 
+func expect(err error, msg ...string) {
+	if err != nil {
+		errorLog.Fatalln(msg, err)
+	}
+}
+
 func quote(s string) string {
 	return "'" + s + "'"
 }
@@ -170,19 +176,13 @@ type Project struct {
 func NewProject() Project {
 	file, err := os.Open(PROJECT_FILE)
 	defer file.Close()
-	if err != nil {
-		errorLog.Fatalln("Could not find a project file, run 'cl init' to initialise a project")
-	}
+	expect(err, "Could not find a project file, run 'cl init' to initialise a project")
 
 	bytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		errorLog.Fatalln("Could not read project file", err)
-	}
+	expect(err, "Could not read project file")
 
 	var manifest Manifest
-	if err := toml.Unmarshal(bytes, &manifest); err != nil {
-		errorLog.Fatalln("Could not parse project file", err)
-	}
+	expect(toml.Unmarshal(bytes, &manifest), "Could not parse project file")
 
 	return Project{manifest}
 }
@@ -290,19 +290,13 @@ func unlitHelper(dir string, mod string) {
 
 	lfile, err := os.Open(lpath) // lpath already exists...
 	defer lfile.Close()
-	if err != nil {
-		errorLog.Fatalln("Could not open", quote(path), err)
-	}
+	expect(err, "Could not open", quote(path))
 	ifile, err := os.Create(ipath)
 	defer ifile.Close()
-	if err != nil {
-		errorLog.Fatalln("Could not open", quote(path), err)
-	}
+	expect(err, "Could not open", quote(path))
 	dfile, err := os.Create(dpath)
 	defer dfile.Close()
-	if err != nil {
-		errorLog.Fatalln("Could not open", quote(path), err)
-	}
+	expect(err, "Could not open", quote(path))
 
 	scanner := bufio.NewScanner(lfile)
 	iwriter := bufio.NewWriter(ifile)
@@ -347,9 +341,7 @@ func (prj *Project) Build() {
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		errorLog.Fatalln(err)
-	}
+	expect(cmd.Run(), "Could not run 'clm'")
 }
 
 func (prj *Project) Run() {
@@ -357,13 +349,12 @@ func (prj *Project) Run() {
 
 	actionLog.Println("Running project")
 
-	cmd := exec.Command("./" + prj.Manifest.Executable.Output)
+	out := prj.Manifest.Executable.Output
+	cmd := exec.Command("./" + out)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	//NOTE: `cmd.Run()` lets your ignore the error and silently fails if command could not be found...
-	if err := cmd.Run(); err != nil {
-		errorLog.Fatalln(err)
-	}
+	expect(cmd.Run(), "Could not run", quote(out))
 }
 
 func (prj *Project) List() {
@@ -376,9 +367,7 @@ func (prj *Project) List() {
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		errorLog.Fatalln(err)
-	}
+	expect(cmd.Run(), "Could not run 'clm'")
 }
 
 func buildArgs(manifest Manifest, extra ...string) []string {
@@ -428,13 +417,9 @@ func (prj *Project) LegacyGen() {
 	temp := template.Must(template.New("LEGACY_CONFIG").Parse(LEGACY_CONFIG))
 	out, err := os.Create(LEGACY_PROJECT_FILE)
 	defer out.Close()
-	if err != nil {
-		errorLog.Fatalln("Could not create", quote(LEGACY_PROJECT_FILE), err)
-	}
-	err = temp.Execute(out, prj.Manifest)
-	if err != nil {
-		errorLog.Fatalln("Error writing legacy configuration file", err)
-	}
+	expect(err, "Could not create", quote(LEGACY_PROJECT_FILE))
+
+	expect(temp.Execute(out, prj.Manifest), "Error writing legacy configuration file")
 }
 
 func (prj *Project) LegacyBuild() {
@@ -446,9 +431,7 @@ func (prj *Project) LegacyBuild() {
 	cmd := exec.Command("cpm", "make")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		errorLog.Fatalln(err)
-	}
+	expect(cmd.Run(), "Could not run 'cpm'")
 }
 
 func (prj *Project) LegacyRun() {
@@ -456,12 +439,11 @@ func (prj *Project) LegacyRun() {
 
 	actionLog.Println("Running project")
 
-	cmd := exec.Command("./" + prj.Manifest.Executable.Output)
+	out := prj.Manifest.Executable.Output
+	cmd := exec.Command("./" + out)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		errorLog.Fatalln(err)
-	}
+	expect(cmd.Run(), "Could not run", quote(out))
 }
 
 // Main ////////////////////////////////////////////////////////////////////////
