@@ -16,6 +16,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/bmatcuk/doublestar"
 	"github.com/naoina/toml"
 )
 
@@ -136,6 +137,7 @@ var (
 	dotToSlash = strings.NewReplacer(".", string(os.PathSeparator))
 )
 
+//NOTE: Can't be made constants
 var (
 	headerPrefix   = []byte(">> module ")
 	exportedPrefix = []byte(">> ")
@@ -189,6 +191,7 @@ func NewProject() Project {
 
 func InitProject() {
 	actionLog.Println("Initializing new project")
+	//FIXME: create project file
 
 	os.Mkdir("src", 0755)
 	os.Mkdir("test", 0755)
@@ -198,6 +201,7 @@ func InitProject() {
 
 func (prj *Project) Info() {
 	actionLog.Println("Showing information about current project")
+
 	infoLog.Println(prj.Manifest)
 }
 
@@ -383,13 +387,21 @@ func buildArgs(manifest Manifest, extra ...string) []string {
 func (prj *Project) Clean() {
 	actionLog.Println("Cleaning files")
 
-	filepath.Walk(".", func(path string, _ os.FileInfo, _ error) error {
-		if base := filepath.Base(path); base == "Clean System Files" || base == "sapl" {
-			infoLog.Println(path)
-			os.RemoveAll(path)
-		}
-		return nil
-	})
+	todo := make([]string, 0, 32)
+
+	var glob []string
+	glob, _ = doublestar.Glob("**/Clean System Files/")
+	todo = append(todo, glob...)
+	glob, _ = doublestar.Glob("*-sapl")
+	todo = append(todo, glob...)
+	glob, _ = doublestar.Glob("*-www")
+	todo = append(todo, glob...)
+
+	for _, path := range todo {
+		//NOTE: Here we could also add a check if files exist, but Glob already does that.
+		infoLog.Println(path)
+		os.RemoveAll(path)
+	}
 }
 
 func (prj *Project) Prune() {
@@ -397,16 +409,20 @@ func (prj *Project) Prune() {
 
 	actionLog.Println("Pruning files")
 
-	//NOTE: How ugly...
-	todo := []string{"", "-data", "-sapl", "-www"}
-	for _, name := range todo {
-		path := prj.Manifest.Executable.Output + name
+	todo := make([]string, 0, 3)
+
+	var glob []string
+	glob, _ = doublestar.Glob(prj.Manifest.Executable.Output)
+	todo = append(todo, glob...)
+	glob, _ = doublestar.Glob(LEGACY_PROJECT_FILE)
+	todo = append(todo, glob...)
+	glob, _ = doublestar.Glob("*-data")
+	todo = append(todo, glob...)
+
+	for _, path := range todo {
 		infoLog.Println(path)
 		os.RemoveAll(path)
 	}
-
-	infoLog.Println(LEGACY_PROJECT_FILE)
-	os.RemoveAll(LEGACY_PROJECT_FILE)
 }
 
 // Legacy commands /////////////////////////////////////////////////////////////
