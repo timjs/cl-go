@@ -241,7 +241,7 @@ func InitProject() {
 	enc.Indent = ""
 	expect(enc.Encode(mfst), "Could not encode project information")
 
-	// os.Mkdir("src", 0755)
+	os.Mkdir("src", 0755)
 	os.Create(filepath.Join("src", "Main.icl"))
 	os.Mkdir("test", 0755)
 }
