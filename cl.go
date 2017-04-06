@@ -118,6 +118,12 @@ MainModule
 		ReuseUniqueNodes:	True
 		Fusion:	False
 `
+	mainTemplate = `module Main
+
+import StdEnv
+
+Start = "Hello World!"
+`
 )
 
 // Helpers /////////////////////////////////////////////////////////////////////
@@ -245,8 +251,13 @@ func InitProject() {
 	expect(enc.Encode(mfst), "Could not encode project information")
 
 	os.Mkdir("src", 0755)
-	os.Create(filepath.Join("src", "Main.icl"))
 	os.Mkdir("test", 0755)
+
+	main, err := os.Create(filepath.Join("src", "Main.icl"))
+	defer main.Close()
+	expect(err, "Could not create main file")
+
+	fmt.Fprintln(main, mainTemplate)
 }
 
 // Commands ////////////////////////////////////////////////////////////////////
