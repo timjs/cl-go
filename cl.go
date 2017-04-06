@@ -163,15 +163,15 @@ type (
 		Version string
 		Authors []string
 
-		Sourcedir    string
+		Sourcedir    string `toml:",omitempty"`
 		Modules      []string
 		OtherModules []string
 		Libraries    []string
 	}
 
 	ExecutableInfo struct {
-		Main   string
-		Output string
+		Main   string `toml:",omitempty"`
+		Output string `toml:",omitempty"`
 	}
 
 	// Library struct {
@@ -224,9 +224,25 @@ func NewProject() Project {
 
 func InitProject() {
 	actionLog.Println("Initializing new project")
-	//FIXME: create project file
 
-	os.Mkdir("src", 0755)
+	file, err := os.Create(projectFileName)
+	defer file.Close()
+	expect(err, "Could not create project file")
+
+	dir, err := os.Getwd()
+	expect(err, "Could not get current directory name")
+
+	mfst := Manifest{}
+	mfst.Project.Name = filepath.Base(dir)
+	mfst.Project.Version = "0.1.0"
+	mfst.Project.Authors = []string{}
+
+	enc := toml.NewEncoder(file)
+	enc.Indent = ""
+	expect(enc.Encode(mfst), "Could not encode project information")
+
+	// os.Mkdir("src", 0755)
+	os.Create(filepath.Join("src", "Main.icl"))
 	os.Mkdir("test", 0755)
 }
 
