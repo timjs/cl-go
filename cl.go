@@ -8,7 +8,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -204,15 +203,19 @@ type Project struct {
 }
 
 func NewProject() Project {
+	actionLog.Println("Reading project file")
+
 	file, err := os.Open(projectFileName)
 	defer file.Close()
 	expect(err, "Could not find a project file, run `cl init` to initialise a project")
 
-	bytes, err := ioutil.ReadAll(file)
-	expect(err, "Could not read project file")
-
 	manifest := DefaultManifest
-	expect(toml.Unmarshal(bytes, &manifest), "Could not parse project file")
+	md, err := toml.DecodeReader(file, &manifest)
+	expect(err, "Could not parse project file")
+
+	if keys := md.Undecoded(); len(keys) > 0 {
+		warningLog.Println("Found undecoded keys, please update your project file:", keys)
+	}
 
 	// Set defaults:
 	if manifest.Executable.Output == "" {
