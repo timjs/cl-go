@@ -58,11 +58,11 @@ const (
 const (
 	projectFileName       = "Project.toml"
 	legacyProjectFileName = "Project.prj"
-	legacyConfig          = `Version: 1.4
+	legacyConfigTemplate  = `Version: 1.4
 Global
 	ProjectRoot:	.
 	Target:	iTasks
-	Exec:	{Project}/{{.Executable.Output}}
+	Exec:	{Project}/{{.Executable.Name}}
 	CodeGen
 		CheckStacks:	False
 		CheckIndexes:	True
@@ -161,6 +161,9 @@ type (
 	Manifest struct {
 		Project    ProjectInfo
 		Executable ExecutableInfo
+		// Dependencies map[string]string //map[name]version
+		// Executables []ExecutableInfo
+		// Libraries []LibraryInfo
 	}
 
 	ProjectInfo struct {
@@ -168,20 +171,23 @@ type (
 		Version string
 		Authors []string
 
-		Sourcedir    string `toml:",omitempty"`
-		Modules      []string
-		OtherModules []string
-		Libraries    []string
+		Sourcedir string `toml:",omitempty"` //Default: "src"
+
+		Modules      []string //FIXME: Should move to LibraryInfo
+		OtherModules []string //FIXME: Should move to LibraryInfo
+		Libraries    []string //FIXME: Should move to Dependencies
 	}
 
 	ExecutableInfo struct {
-		Main   string `toml:",omitempty"`
-		Output string `toml:",omitempty"`
+		Name string `toml:",omitempty"` //Default: Project.Name
+		Main string `toml:",omitempty"` //Default: "Main"
+		// OtherModules []string //InternalModules?
 	}
 
-	// Library struct {
-	//     Exported []string
-	//     Internal []string
+	// LibraryInfo struct {
+	//     Name string
+	//     ExposedModules []string
+	//     OtherModules []string //InternalModules?
 	// }
 )
 
@@ -224,8 +230,8 @@ func NewProject() Project {
 	}
 
 	// Set defaults:
-	if manifest.Executable.Output == "" {
-		manifest.Executable.Output = manifest.Project.Name
+	if manifest.Executable.Name == "" {
+		manifest.Executable.Name = manifest.Project.Name
 	}
 
 	return Project{manifest}
@@ -396,7 +402,7 @@ func (prj *Project) Build() {
 
 	actionLog.Println("Building project")
 
-	args := buildArgs(prj.Manifest, prj.Manifest.Executable.Main, "-o", prj.Manifest.Executable.Output)
+	args := buildArgs(prj.Manifest, prj.Manifest.Executable.Main, "-o", prj.Manifest.Executable.Name)
 
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
@@ -409,7 +415,7 @@ func (prj *Project) Run() {
 
 	actionLog.Println("Running project")
 
-	out := prj.Manifest.Executable.Output
+	out := prj.Manifest.Executable.Name
 	cmd := exec.Command("./" + out)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -468,7 +474,7 @@ func (prj *Project) Prune() {
 	todo := make([]string, 0, 3)
 
 	var glob []string
-	glob, _ = doublestar.Glob(prj.Manifest.Executable.Output)
+	glob, _ = doublestar.Glob(prj.Manifest.Executable.Name)
 	todo = append(todo, glob...)
 	glob, _ = doublestar.Glob(legacyProjectFileName)
 	todo = append(todo, glob...)
@@ -486,7 +492,7 @@ func (prj *Project) Prune() {
 func (prj *Project) LegacyGen() {
 	actionLog.Println("Generating legacy project configuration")
 
-	temp := template.Must(template.New("legacy config").Parse(legacyConfig))
+	temp := template.Must(template.New("legacy config").Parse(legacyConfigTemplate))
 	out, err := os.Create(legacyProjectFileName)
 	defer out.Close()
 	expect(err, "Could not create", quote(legacyProjectFileName))
@@ -511,7 +517,7 @@ func (prj *Project) LegacyRun() {
 
 	actionLog.Println("Running project")
 
-	out := prj.Manifest.Executable.Output
+	out := prj.Manifest.Executable.Name
 	cmd := exec.Command("./" + out)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
