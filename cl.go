@@ -3,6 +3,8 @@ package main
 // TODO
 // - add/remove/move modules in config too
 // - remove `os.Chdir`s
+// - replace []byte with string
+// - support for building standalone file (new and legacy)
 
 import (
 	"bufio"
@@ -150,8 +152,14 @@ var (
 
 // Manifest ////////////////////////////////////////////////////////////////////
 
-type Manifest struct {
-	Project struct {
+//NOTE: Nested structs don't have a constructor, so we define them all seperately
+type (
+	Manifest struct {
+		Project    ProjectInfo
+		Executable ExecutableInfo
+	}
+
+	ProjectInfo struct {
 		Name    string
 		Version string
 		Authors []string
@@ -162,7 +170,7 @@ type Manifest struct {
 		Libraries    []string
 	}
 
-	Executable struct {
+	ExecutableInfo struct {
 		Main   string
 		Output string
 	}
@@ -171,6 +179,23 @@ type Manifest struct {
 	//     Exported []string
 	//     Internal []string
 	// }
+)
+
+var DefaultManifest = Manifest{
+	Project: ProjectInfo{
+		Name:    "application",
+		Version: "0.0.0",
+
+		Sourcedir: "src",
+		Libraries: []string{
+			"Dynamics",
+			"Generics",
+			"Platform",
+		},
+	},
+	Executable: ExecutableInfo{
+		Main: "Main",
+	},
 }
 
 // Project /////////////////////////////////////////////////////////////////////
@@ -187,8 +212,13 @@ func NewProject() Project {
 	bytes, err := ioutil.ReadAll(file)
 	expect(err, "Could not read project file")
 
-	var manifest Manifest
+	manifest := DefaultManifest
 	expect(toml.Unmarshal(bytes, &manifest), "Could not parse project file")
+
+	// Set defaults:
+	if manifest.Executable.Output == "" {
+		manifest.Executable.Output = manifest.Project.Name
+	}
 
 	return Project{manifest}
 }
