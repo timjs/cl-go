@@ -3,12 +3,10 @@ package main
 // TODO
 // - add/remove/move modules in config too
 // - remove `os.Chdir`s
-// - replace []byte with string
 // - support for building standalone file (new and legacy)
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -25,8 +23,7 @@ import (
 
 // Constants ///////////////////////////////////////////////////////////////////
 
-const PROJECT_FILE = "Project.toml"
-const USAGE = `Clean command line tools
+const usage = `Clean command line tools
 
 Usage:
     cl <command> [<args>...]
@@ -53,8 +50,16 @@ Available commands include:
 // executable named 'cl-foobar' you will be able to run it as 'cl foobar' as
 // long as it appears on your PATH.`,
 
-const LEGACY_PROJECT_FILE = "Project.prj"
-const LEGACY_CONFIG = `Version: 1.4
+const (
+	headerPrefix   = ">> module "
+	exportedPrefix = ">> "
+	internalPrefix = ">  " //XXX be aware of the double spaces!!!
+)
+
+const (
+	projectFileName       = "Project.toml"
+	legacyProjectFileName = "Project.prj"
+	legacyConfig          = `Version: 1.4
 Global
 	ProjectRoot:	.
 	Target:	iTasks
@@ -114,6 +119,7 @@ MainModule
 		ReuseUniqueNodes:	True
 		Fusion:	False
 `
+)
 
 // Helpers /////////////////////////////////////////////////////////////////////
 
@@ -141,13 +147,6 @@ var (
 var (
 	slashToDot = strings.NewReplacer(string(os.PathSeparator), ".")
 	dotToSlash = strings.NewReplacer(".", string(os.PathSeparator))
-)
-
-//NOTE: Can't be made constants
-var (
-	headerPrefix   = []byte(">> module ")
-	exportedPrefix = []byte(">> ")
-	internalPrefix = []byte(">  ") //XXX be aware of the double spaces!!!
 )
 
 // Manifest ////////////////////////////////////////////////////////////////////
@@ -205,7 +204,7 @@ type Project struct {
 }
 
 func NewProject() Project {
-	file, err := os.Open(PROJECT_FILE)
+	file, err := os.Open(projectFileName)
 	defer file.Close()
 	expect(err, "Could not find a project file, run 'cl init' to initialise a project")
 
@@ -342,29 +341,22 @@ func unlitHelper(dir string, mod string) {
 	dwriter := bufio.NewWriter(dfile)
 	defer dwriter.Flush()
 	for scanner.Scan() {
-		line := scanner.Bytes()
-		if bytes.HasPrefix(line, headerPrefix) {
-			code := bytes.TrimPrefix(line, exportedPrefix)
-			iwriter.WriteString("implementation ")
-			iwriter.Write(code)
-			iwriter.WriteString("\n")
-			dwriter.WriteString("definition ")
-			dwriter.Write(code)
-			dwriter.WriteString("\n")
-		} else if bytes.HasPrefix(line, []byte(exportedPrefix)) {
-			code := bytes.TrimPrefix(line, exportedPrefix)
-			iwriter.Write(code)
-			iwriter.WriteString("\n")
-			dwriter.Write(code)
-			dwriter.WriteString("\n")
-		} else if bytes.HasPrefix(line, []byte(internalPrefix)) {
-			code := bytes.TrimPrefix(line, internalPrefix)
-			iwriter.Write(code)
-			iwriter.WriteString("\n")
-			dwriter.WriteString("\n")
+		line := scanner.Text()
+		if strings.HasPrefix(line, headerPrefix) {
+			code := strings.TrimPrefix(line, exportedPrefix)
+			fmt.Fprintln(iwriter, "implementation", code)
+			fmt.Fprintln(dwriter, "definition", code)
+		} else if strings.HasPrefix(line, exportedPrefix) {
+			code := strings.TrimPrefix(line, exportedPrefix)
+			fmt.Fprintln(iwriter, code)
+			fmt.Fprintln(dwriter, code)
+		} else if strings.HasPrefix(line, internalPrefix) {
+			code := strings.TrimPrefix(line, internalPrefix)
+			fmt.Fprintln(iwriter, code)
+			fmt.Fprintln(dwriter)
 		} else {
-			iwriter.WriteString("\n")
-			dwriter.WriteString("\n")
+			fmt.Fprintln(iwriter)
+			fmt.Fprintln(dwriter)
 		}
 	}
 }
@@ -448,7 +440,7 @@ func (prj *Project) Prune() {
 	var glob []string
 	glob, _ = doublestar.Glob(prj.Manifest.Executable.Output)
 	todo = append(todo, glob...)
-	glob, _ = doublestar.Glob(LEGACY_PROJECT_FILE)
+	glob, _ = doublestar.Glob(legacyProjectFileName)
 	todo = append(todo, glob...)
 	glob, _ = doublestar.Glob("*-data")
 	todo = append(todo, glob...)
@@ -464,10 +456,10 @@ func (prj *Project) Prune() {
 func (prj *Project) LegacyGen() {
 	actionLog.Println("Generating legacy project configuration")
 
-	temp := template.Must(template.New("LEGACY_CONFIG").Parse(LEGACY_CONFIG))
-	out, err := os.Create(LEGACY_PROJECT_FILE)
+	temp := template.Must(template.New("legacy config").Parse(legacyConfig))
+	out, err := os.Create(legacyProjectFileName)
 	defer out.Close()
-	expect(err, "Could not create", quote(LEGACY_PROJECT_FILE))
+	expect(err, "Could not create", quote(legacyProjectFileName))
 
 	expect(temp.Execute(out, prj.Manifest), "Error writing legacy configuration file")
 }
@@ -478,7 +470,7 @@ func (prj *Project) LegacyBuild() {
 
 	actionLog.Println("Building project")
 
-	cmd := exec.Command("cpm", LEGACY_PROJECT_FILE)
+	cmd := exec.Command("cpm", legacyProjectFileName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	expect(cmd.Run(), "Could not run 'cpm'")
@@ -501,12 +493,12 @@ func (prj *Project) LegacyRun() {
 func main() {
 
 	if len(os.Args) == 1 {
-		infoLog.Fatalln(USAGE)
+		infoLog.Fatalln(usage)
 	}
 
 	switch os.Args[1] {
 	case "help":
-		infoLog.Println(USAGE)
+		infoLog.Println(usage)
 	case "init":
 		InitProject()
 	default:
