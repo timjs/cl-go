@@ -17,8 +17,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/bmatcuk/doublestar"
-	"github.com/naoina/toml"
 )
 
 // Constants ///////////////////////////////////////////////////////////////////
