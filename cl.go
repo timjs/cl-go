@@ -206,7 +206,7 @@ func InitProject() {
 func (prj *Project) Info() {
 	actionLog.Println("Showing information about current project")
 
-	infoLog.Println(prj.Manifest)
+	expect(toml.NewEncoder(os.Stdout).Encode(prj.Manifest), "Could not encode project information")
 }
 
 func (prj *Project) Add(mods ...string) {
