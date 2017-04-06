@@ -46,8 +46,8 @@ Available commands include:
 // You can learn more about a specific command by running:
 //     cl <command> --help`
 
-// In all these cases we are simply running 'cl-<command>' so if you create an
-// executable named 'cl-foobar' you will be able to run it as 'cl foobar' as
+// In all these cases we are simply running `cl-<command>` so if you create an
+// executable named `cl-foobar` you will be able to run it as `cl foobar` as
 // long as it appears on your PATH.`,
 
 const (
@@ -133,7 +133,7 @@ func expect(err error, msg ...string) {
 }
 
 func quote(s string) string {
-	return "'" + s + "'"
+	return "`" + s + "`"
 }
 
 var (
@@ -206,7 +206,7 @@ type Project struct {
 func NewProject() Project {
 	file, err := os.Open(projectFileName)
 	defer file.Close()
-	expect(err, "Could not find a project file, run 'cl init' to initialise a project")
+	expect(err, "Could not find a project file, run `cl init` to initialise a project")
 
 	bytes, err := ioutil.ReadAll(file)
 	expect(err, "Could not read project file")
@@ -371,7 +371,7 @@ func (prj *Project) Build() {
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "Could not run 'clm'")
+	expect(cmd.Run(), "Could not run `clm`")
 }
 
 func (prj *Project) Run() {
@@ -397,7 +397,7 @@ func (prj *Project) List() {
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "Could not run 'clm'")
+	expect(cmd.Run(), "Could not run `clm`")
 }
 
 func buildArgs(manifest Manifest, extra ...string) []string {
@@ -473,7 +473,7 @@ func (prj *Project) LegacyBuild() {
 	cmd := exec.Command("cpm", legacyProjectFileName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "Could not run 'cpm'")
+	expect(cmd.Run(), "Could not run `cpm`")
 }
 
 func (prj *Project) LegacyRun() {
@@ -533,7 +533,7 @@ func main() {
 		case "legacyrun":
 			prj.LegacyRun()
 		default:
-			errorLog.Fatalln(quote(os.Args[1]), "is not a valid command, run 'cl help' to see a list of all available commands")
+			errorLog.Fatalln(quote(os.Args[1]), "is not a valid command, run `cl help` to see a list of all available commands")
 		}
 	}
 }
