@@ -7,6 +7,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -116,7 +117,10 @@ MainModule
 
 func expect(err error, msg ...string) {
 	if err != nil {
-		errorLog.Fatalln(msg, err)
+		str := strings.Trim(fmt.Sprint(msg), "[]")
+		errorLog.Fatalf("%s (%v)", str, err)
+		// errorLog.Printn(msg...)
+		// errorLog.Fatalln(err)
 	}
 }
 
