@@ -448,7 +448,7 @@ func (prj *Project) LegacyBuild() {
 
 	actionLog.Println("Building project")
 
-	cmd := exec.Command("cpm", "make")
+	cmd := exec.Command("cpm", LEGACY_PROJECT_FILE)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	expect(cmd.Run(), "Could not run 'cpm'")
