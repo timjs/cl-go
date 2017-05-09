@@ -436,6 +436,7 @@ func (prj *Project) List() {
 
 func buildArgs(manifest Manifest, extra ...string) []string {
 	args := make([]string, 0, 2*len(manifest.Project.Libraries)+len(extra)) // Reserve space for possible additional arguments
+	args = append(args, "-dynamics")
 	args = append(args, "-I", manifest.Project.Sourcedir)
 	for _, lib := range manifest.Project.Libraries {
 		args = append(args, "-IL", lib)
