@@ -131,9 +131,7 @@ Start = "Hello World!"
 func expect(err error, msg ...string) {
 	if err != nil {
 		str := strings.Trim(fmt.Sprint(msg), "[]")
-		errorLog.Fatalf("%s (%v)", str, err)
-		// errorLog.Printn(msg...)
-		// errorLog.Fatalln(err)
+		errorLog.Fatalf("%s\n   (%v)", str, err)
 	}
 }
 
