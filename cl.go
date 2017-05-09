@@ -110,7 +110,7 @@ MainModule
 		NeverMemoryProfile:	False
 		NeverTimeProfile:	False
 		StrictnessAnalysis:	True
-		ListTypes:	StrictExportTypes
+		ListTypes:	AllTypes
 		ListAttributes:	True
 		Warnings:	True
 		Verbose:	True
