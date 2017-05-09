@@ -25,22 +25,27 @@ import (
 const usage = `Clean command line tools
 
 Usage:
-    cl <command> [<args>...]
+    cl <command> [<arguments>...]
 
-Available commands include:
-    help
-    init
-    info
-    add, create
-    remove, rm, delete
-    move, mv
-    legacybuild, legacygen, legacyrun
-    unlit
-    build
-    run
-    list
-    clean
-    prune`
+Commands:
+    help                Show this message
+    init                Initialise new project
+    show info           Show project info
+    show types          Show types of all functions
+    unlit               Unliterate modules
+    build               Compile project
+    run                 Build and run project
+    clean               Clean build files
+    prune               Clean and remove artifacts
+
+Legacy commands:
+    add, create         Add new instance and definition modules
+    remove, rm, delete  Delete instance and definition modules
+    move, mv            Move instance and definition modules
+    generate            Generate legacy .prj file
+    legacybuild         Build using legacy .prj file
+    legacyrun           Build and run using legacy .prj file
+`
 
 // You can learn more about a specific command by running:
 //     cl <command> --help`
@@ -266,7 +271,7 @@ func InitProject() {
 
 // Commands ////////////////////////////////////////////////////////////////////
 
-func (prj *Project) Info() {
+func (prj *Project) ShowInfo() {
 	actionLog.Println("Showing information about current project")
 
 	expect(toml.NewEncoder(os.Stdout).Encode(prj.Manifest), "Could not encode project information")
@@ -405,7 +410,7 @@ func (prj *Project) Build() {
 	cmd := exec.Command("clm", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "Could not run `clm`")
+	expect(cmd.Run(), "`clm` ended abnormally")
 }
 
 func (prj *Project) Run() {
@@ -418,20 +423,29 @@ func (prj *Project) Run() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	//NOTE: `cmd.Run()` lets your ignore the error and silently fails if command could not be found...
-	expect(cmd.Run(), "Could not run", quote(out))
+	expect(cmd.Run(), quote(out), "ended abnormally")
 }
 
-func (prj *Project) List() {
+func (prj *Project) ShowTypes() {
 	prj.Unlit()
 
 	actionLog.Println("Collecting types of functions")
 
+	now := time.Now()
+	for _, name := range prj.Manifest.Project.Modules {
+		path := filepath.Join(prj.Manifest.Project.Sourcedir, dotToSlash.Replace(name)) + ".icl"
+		if err := os.Chtimes(path, now, now); err != nil {
+			warningLog.Println("Could not touch", path)
+		}
+	}
+
 	args := buildArgs(prj.Manifest, "-lat", prj.Manifest.Executable.Main)
 
 	cmd := exec.Command("clm", args...)
+	debugLog.Println(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "Could not run `clm`")
+	expect(cmd.Run(), "`clm` ended abnormally")
 }
 
 func buildArgs(manifest Manifest, extra ...string) []string {
@@ -508,7 +522,7 @@ func (prj *Project) LegacyBuild() {
 	cmd := exec.Command("cpm", legacyProjectFileName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "Could not run `cpm`")
+	expect(cmd.Run(), "`cpm` ended abnormally")
 }
 
 func (prj *Project) LegacyRun() {
@@ -520,7 +534,7 @@ func (prj *Project) LegacyRun() {
 	cmd := exec.Command("./" + out)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "Could not run", quote(out))
+	expect(cmd.Run(), quote(out), "ended abnormally")
 }
 
 // Main ////////////////////////////////////////////////////////////////////////
@@ -541,8 +555,17 @@ func main() {
 		prj := NewProject()
 
 		switch os.Args[1] {
-		case "info":
-			prj.Info()
+		case "show":
+			if len(os.Args) == 3 {
+				switch os.Args[2] {
+				case "info":
+					prj.ShowInfo()
+				case "types":
+					prj.ShowTypes()
+				}
+			} else {
+				prj.ShowInfo()
+			}
 		case "add", "create":
 			prj.Add(os.Args[2:]...)
 		case "remove", "rm", "delete":
@@ -555,13 +578,11 @@ func main() {
 			prj.Build()
 		case "run":
 			prj.Run()
-		case "list":
-			prj.List()
 		case "clean":
 			prj.Clean()
 		case "prune":
 			prj.Prune()
-		case "legacygen":
+		case "generate":
 			prj.LegacyGen()
 		case "legacybuild":
 			prj.LegacyBuild()
