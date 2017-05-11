@@ -431,6 +431,17 @@ func (prj *Project) ShowTypes() {
 
 	actionLog.Println("Collecting types of functions")
 
+	prj.touchIcls()
+	args := buildArgs(prj.Manifest, "-PABC", "-lat", prj.Manifest.Executable.Main)
+
+	cmd := exec.Command("clm", args...)
+	debugLog.Println(cmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	expect(cmd.Run(), "`clm` ended abnormally")
+}
+
+func (prj *Project) touchIcls() {
 	now := time.Now()
 	for _, name := range prj.Manifest.Project.Modules {
 		path := filepath.Join(prj.Manifest.Project.Sourcedir, dotToSlash.Replace(name)) + ".icl"
@@ -438,14 +449,6 @@ func (prj *Project) ShowTypes() {
 			warningLog.Println("Could not touch", path)
 		}
 	}
-
-	args := buildArgs(prj.Manifest, "-lat", prj.Manifest.Executable.Main)
-
-	cmd := exec.Command("clm", args...)
-	debugLog.Println(cmd)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	expect(cmd.Run(), "`clm` ended abnormally")
 }
 
 func buildArgs(manifest Manifest, extra ...string) []string {
