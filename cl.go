@@ -147,9 +147,9 @@ func quote(s string) string {
 var (
 	actionLog  = log.New(os.Stdout, ">> ", 0)
 	infoLog    = log.New(os.Stdout, ":: ", 0)
-	warningLog = log.New(os.Stderr, "** ", 0)
-	errorLog   = log.New(os.Stderr, "!! ", 0)
-	debugLog   = log.New(os.Stderr, ".. ", 0)
+	warningLog = log.New(os.Stdout, "** ", 0)
+	errorLog   = log.New(os.Stdout, "!! ", 0)
+	debugLog   = log.New(os.Stdout, ".. ", 0)
 )
 
 var (
