@@ -271,12 +271,6 @@ func InitProject() {
 
 // Commands ////////////////////////////////////////////////////////////////////
 
-func (prj *Project) ShowInfo() {
-	actionLog.Println("Showing information about current project")
-
-	expect(toml.NewEncoder(os.Stdout).Encode(prj.Manifest), "Could not encode project information")
-}
-
 func (prj *Project) Add(mods ...string) {
 	os.Chdir(prj.Manifest.Project.Sourcedir)
 
@@ -424,6 +418,12 @@ func (prj *Project) Run() {
 	cmd.Stderr = os.Stderr
 	//NOTE: `cmd.Run()` lets your ignore the error and silently fails if command could not be found...
 	expect(cmd.Run(), quote(out), "ended abnormally")
+}
+
+func (prj *Project) ShowInfo() {
+	actionLog.Println("Showing information about current project")
+
+	expect(toml.NewEncoder(os.Stdout).Encode(prj.Manifest), "Could not encode project information")
 }
 
 func (prj *Project) ShowTypes() {
