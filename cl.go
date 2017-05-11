@@ -7,6 +7,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -155,6 +156,14 @@ var (
 var (
 	slashToDot = strings.NewReplacer(string(os.PathSeparator), ".")
 	dotToSlash = strings.NewReplacer(".", string(os.PathSeparator))
+	prettify   = strings.NewReplacer(
+		"/icl", ".lcl",
+		"/dcl", ".lcl",
+		"/abc", ".abc",
+		"/\n", "",
+		",]", ".lcl]",
+		"cannot unify demanded type with offered type:\n ", "cannot unify demanded type `",
+		"\n ", "` with offered type `")
 )
 
 // Manifest ////////////////////////////////////////////////////////////////////
@@ -394,6 +403,23 @@ func unlitHelper(dir string, mod string) {
 	}
 }
 
+func (prj *Project) Check() {
+	prj.Unlit()
+
+	actionLog.Println("Typechecking project")
+
+	// NOTE: We let `clm` generate all .abc files to typecheck the whole project
+	args := buildArgs(prj.Manifest, "-PABC", prj.Manifest.Executable.Main)
+
+	output := new(bytes.Buffer)
+	cmd := exec.Command("clm", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = output
+	cmd.Run()
+
+	fmt.Print(prettify.Replace(dotToSlash.Replace(output.String())))
+}
+
 func (prj *Project) Build() {
 	prj.Unlit()
 
@@ -578,6 +604,8 @@ func main() {
 			prj.Move(os.Args[2], os.Args[3])
 		case "unlit":
 			prj.Unlit()
+		case "check":
+			prj.Check()
 		case "build":
 			prj.Build()
 		case "run":
